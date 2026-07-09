@@ -77,6 +77,33 @@ export default function CheckoutPage() {
       items: [...items],
     };
 
+    try {
+      const res = await fetch('/api/bon-commande', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          counterpartyThirdPartyId: user?.id || '00000000-0000-0000-0000-000000000000',
+          currency: 'FCFA',
+          organizationId: tenant?.organizationId || 'o1',
+          lines: items.map(item => ({
+            productId: item.productId || item.variantId, // fallback
+            quantity: item.quantity,
+            unitPrice: item.price,
+            taxRate: 0
+          }))
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        console.error('Erreur API bon-commande:', data);
+      }
+    } catch (e) {
+      console.error('Fetch error bon-commande', e);
+    }
+
     addOrder(newOrder);
     setOrderData(newOrder);
     setIsProcessing(false);
