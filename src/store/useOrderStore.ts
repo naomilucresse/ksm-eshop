@@ -41,9 +41,9 @@ export const useOrderStore = create<OrderState>()(
           const res = await fetch(`/api/orders?organizationId=${organizationId}`).then(r => r.json());
           if (res.success && Array.isArray(res.data)) {
             const backendOrders = res.data.map((o: any) => ({
-              id: o.orderNumber || o.id,
-              customerName: o.customerThirdPartyId || 'Client',
-              customerId: o.customerThirdPartyId,
+              id: o.documentNumber || o.orderNumber || o.id,
+              customerName: o.counterparty?.name || o.customerThirdPartyId || 'Client',
+              customerId: o.counterparty?.id || o.customerThirdPartyId,
               total: o.totalAmount || o.subtotalAmount || 0,
               status: o.status?.toLowerCase() || 'pending',
               date: new Date(o.createdAt || Date.now()).toLocaleDateString('fr-FR', {
@@ -63,6 +63,9 @@ export const useOrderStore = create<OrderState>()(
       },
 
       addOrder: async (order) => {
+        // Optimistic UI update
+        set((state) => ({ orders: [order, ...state.orders] }));
+
         const reqBody = {
           customerThirdPartyId: order.customerId || order.customerName, // Use UUID if available
           orderNumber: order.id,

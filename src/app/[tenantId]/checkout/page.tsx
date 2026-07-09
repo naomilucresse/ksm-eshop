@@ -50,7 +50,7 @@ export default function CheckoutPage() {
     const orderId = `KSM-${randomId}`;
 
     // Dispatch Order to Inventory (calls inventory-core logic)
-    const stockAvailable = dispatchSalesOrder(
+    const stockAvailable = await dispatchSalesOrder(
       tenant?.id || 't1',
       orderId,
       items.map(item => ({ variantId: item.variantId, quantity: item.quantity }))

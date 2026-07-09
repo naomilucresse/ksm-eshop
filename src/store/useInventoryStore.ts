@@ -289,6 +289,22 @@ export const useInventoryStore = create<InventoryState>()(
           // Extract product ID from variantId (v-p1 -> p1)
           const productId = movement.variantId.replace('v-', '');
 
+          // Optimistic update so UI reflects stock changes immediately
+          const tempMovement: StockMovement = {
+            id: `temp-${Date.now()}-${Math.random()}`,
+            tenantId: movement.tenantId || 't1',
+            organizationId: movement.organizationId || 'o1',
+            variantId: movement.variantId,
+            warehouseId: movement.warehouseId,
+            referenceNumber: movement.referenceNumber || `MVT-TMP-${Date.now()}`,
+            type: movement.type,
+            sourceDoc: movement.sourceDoc,
+            status: movement.status || 'DRAFT',
+            quantity: movement.quantity,
+            createdAt: new Date().toISOString()
+          };
+          set((state) => ({ movements: [...state.movements, tempMovement] }));
+
           const res = await fetch('/api/inventory/movements', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
