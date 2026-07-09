@@ -1,4 +1,4 @@
-import { getKernelHeaders } from '@/lib/kernel-auth';
+import { getKernelHeaders, getKernelBaseHeaders } from '@/lib/kernel-auth';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'https://kernel-core.yowyob.com';
 
@@ -34,22 +34,32 @@ export async function backendFetch<T = any>(
     });
   }
 
-  // Get authenticated headers from kernel-auth service
-  let kernelHeaders: Record<string, string>;
-  try {
-    kernelHeaders = await getKernelHeaders();
-  } catch (authError: any) {
-    console.error('[API Client] Authentication error:', authError.message);
-    return {
-      success: false,
-      message: authError.message || 'Erreur d\'authentification avec le kernel.',
-      errorCode: 'AUTH_ERROR',
-    };
+  // Check if caller provided Authorization header
+  const authHeaderKey = Object.keys(headers || {}).find(k => k.toLowerCase() === 'authorization');
+  const hasAuth = !!authHeaderKey;
+
+  let baseHeaders: Record<string, string> = {};
+  
+  if (hasAuth) {
+    // Caller provided auth, just get base headers (X-Client-Id, etc.) without logging in
+    baseHeaders = getKernelBaseHeaders();
+  } else {
+    // No auth provided, attempt to get system token
+    try {
+      baseHeaders = await getKernelHeaders();
+    } catch (authError: any) {
+      console.error('[API Client] Authentication error:', authError.message);
+      return {
+        success: false,
+        message: authError.message || 'Erreur d\'authentification avec le kernel.',
+        errorCode: 'AUTH_ERROR',
+      };
+    }
   }
 
   const mergedHeaders: Record<string, string> = {
-    ...kernelHeaders,
-    ...(headers as Record<string, string>), // caller can override if needed
+    ...baseHeaders,
+    ...(headers as Record<string, string>), // caller overrides
   };
 
   if (restOptions.body && typeof restOptions.body === 'string' && !Object.keys(mergedHeaders).some(k => k.toLowerCase() === 'content-type')) {
