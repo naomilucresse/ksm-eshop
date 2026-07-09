@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export interface Order {
   id: string;
   customerName: string;
+  customerId?: string;
   total: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   date: string;
@@ -42,6 +43,7 @@ export const useOrderStore = create<OrderState>()(
             const backendOrders = res.data.map((o: any) => ({
               id: o.orderNumber || o.id,
               customerName: o.customerThirdPartyId || 'Client',
+              customerId: o.customerThirdPartyId,
               total: o.totalAmount || o.subtotalAmount || 0,
               status: o.status?.toLowerCase() || 'pending',
               date: new Date(o.createdAt || Date.now()).toLocaleDateString('fr-FR', {
@@ -62,7 +64,7 @@ export const useOrderStore = create<OrderState>()(
 
       addOrder: async (order) => {
         const reqBody = {
-          customerThirdPartyId: order.customerName,
+          customerThirdPartyId: order.customerId || order.customerName, // Use UUID if available
           orderNumber: order.id,
           currency: 'FCFA',
           lines: order.items.map(item => ({

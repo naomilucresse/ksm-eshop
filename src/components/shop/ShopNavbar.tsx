@@ -187,6 +187,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
             onClose={() => setShowOrdersModal(false)}
             userName={displayName}
             userEmail={user.email || ''}
+            customerId={user.id || user.thirdPartyId}
           />
         </>
       )}

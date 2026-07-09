@@ -11,7 +11,7 @@ interface OrdersHistoryModalProps {
   userEmail: string;
 }
 
-export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmail }: OrdersHistoryModalProps) {
+export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmail, customerId }: OrdersHistoryModalProps & { customerId?: string }) {
   const { tenantId } = useParams(); // URL slug (tenant identifier)
   const orders = useOrderStore((state) => state.orders);
 
@@ -21,7 +21,8 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
   // We match by customer name or email, or show all for testing if empty
   const customerOrders = orders.filter(
     (order) => 
-      (order.customerName.toLowerCase().includes(userName.toLowerCase()) || 
+      ((customerId && order.customerId === customerId) ||
+       order.customerName.toLowerCase().includes(userName.toLowerCase()) || 
        order.customerName.toLowerCase() === 'client ksm' ||
        order.customerName === '') &&
       (order.tenantId === tenantId || order.tenantId === 't1') // match tenant

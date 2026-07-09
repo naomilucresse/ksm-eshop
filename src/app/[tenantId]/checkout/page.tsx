@@ -65,6 +65,7 @@ export default function CheckoutPage() {
     const newOrder: Order = {
       id: orderId,
       customerName: customerName || 'Client KSM',
+      customerId: user?.id || '00000000-0000-0000-0000-000000000000',
       total: totalPrice,
       status: 'pending',
       date: new Date().toLocaleString('fr-FR', { 
