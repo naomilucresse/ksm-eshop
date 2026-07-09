@@ -6,6 +6,7 @@ import { TENANTS } from '@/lib/mock-data';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminNavbar from '@/components/admin/AdminNavbar';
 import { useAuthStore } from '@/store/useAuthStore';
+import StoreInitializer from '@/components/shop/StoreInitializer';
 
 interface AdminLayoutProps {
  children: React.ReactNode;
@@ -19,7 +20,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
  const { isAuthenticated } = useAuthStore();
  const [isMounted, setIsMounted] = useState(false);
 
- const tenant = TENANTS.find((t) => t.slug === tenantId);
+ let tenant = TENANTS.find((t) => t.slug === tenantId);
 
  useEffect(() => {
    setIsMounted(true);
@@ -27,12 +28,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
  useEffect(() => {
    if (isMounted && !isAuthenticated && !pathname.endsWith('/login')) {
-     router.push(`/admin/${tenantId}/login`);
+     router.push('/admin/login');
    }
- }, [isMounted, isAuthenticated, pathname, router, tenantId]);
+ }, [isMounted, isAuthenticated, pathname, router]);
 
  if (!tenant) {
-   notFound();
+   tenant = {
+     id: tenantId,
+     name: 'Mon Organisation',
+     slug: tenantId,
+     description: 'Organisation d\'administration eShop',
+     themeColor: '#2563eb'
+   };
  }
 
  // Prevent hydration mismatch
@@ -52,6 +59,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
  return (
  <div className="flex min-h-screen bg-zinc-50 ">
+ <StoreInitializer tenantId={tenant.id} />
  <AdminSidebar tenant={tenant} />
  <div className="flex flex-1 flex-col">
  <AdminNavbar />

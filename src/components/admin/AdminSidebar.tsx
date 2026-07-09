@@ -4,14 +4,15 @@ import { Tenant } from '@/lib/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
- LayoutDashboard, 
- Package, 
- ShoppingCart, 
- Users, 
- BarChart3, 
- Settings, 
- Globe,
- LogOut
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  Settings, 
+  Globe,
+  LogOut,
+  Boxes,
+  Building2,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,16 +27,20 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
  const { logout } = useAuthStore();
  const router = useRouter();
 
- const handleLogout = () => {
+ const handleLogout = async () => {
+   await fetch('/api/admin/auth/logout', { method: 'POST' });
    logout();
-   router.push(`/admin/${tenant.slug}/login`);
+   router.push('/admin/login');
  };
 
  const navItems = [
- { label: 'Tableau de bord', icon: LayoutDashboard, href: `/admin/${tenant.slug}` },
- { label: 'Produits & Stocks', icon: Package, href: `/admin/${tenant.slug}/products` },
- { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
- { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
+   { label: 'Tableau de bord', icon: LayoutDashboard, href: `/admin/${tenant.slug}` },
+   { label: 'Organisations', icon: Building2, href: `/admin/organizations` },
+   { label: 'Clients', icon: Users, href: `/admin/${tenant.slug}/clients` },
+   { label: 'Produits', icon: Package, href: `/admin/${tenant.slug}/products` },
+   { label: 'Stocks & Entrepôts', icon: Boxes, href: `/admin/${tenant.slug}/inventory` },
+   { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
+   { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
  ];
 
  return (

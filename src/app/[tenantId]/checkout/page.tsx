@@ -8,24 +8,33 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle2, Wallet, ArrowLeft, Printer, Download, ShieldCheck } from 'lucide-react';
 import { useOrderStore, Order } from '@/store/useOrderStore';
+import { useInventoryStore } from '@/store/useInventoryStore';
 import { TENANTS } from '@/lib/mock-data';
+
+import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 
 export default function CheckoutPage() {
   const { tenantId } = useParams();
   const router = useRouter();
   const { items, clearCart } = useCartStore();
   const { addOrder } = useOrderStore();
+  const { dispatchSalesOrder } = useInventoryStore();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [orderData, setOrderData] = useState<any>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  const user = useCustomerAuthStore((state) => state.user);
 
   const totalPrice = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   useEffect(() => {
     setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
-  }, []);
+    if (user) {
+      const name = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || '';
+      setCustomerName(name);
+    }
+  }, [user]);
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,13 +43,27 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     
     // Simuler la connexion au microservice ePay KSM
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     
     const tenant = TENANTS.find(t => t.slug === tenantId);
     const randomId = Math.floor(100000 + Math.random() * 900000);
+    const orderId = `KSM-${randomId}`;
+
+    // Dispatch Order to Inventory (calls inventory-core logic)
+    const stockAvailable = dispatchSalesOrder(
+      tenant?.id || 't1',
+      orderId,
+      items.map(item => ({ variantId: item.variantId, quantity: item.quantity }))
+    );
+
+    if (!stockAvailable) {
+      alert("Erreur: Stock physique insuffisant pour finaliser la commande. Veuillez vérifier la disponibilité.");
+      setIsProcessing(false);
+      return;
+    }
     
     const newOrder: Order = {
-      id: `KSM-${randomId}`,
+      id: orderId,
       customerName: customerName || 'Client KSM',
       total: totalPrice,
       status: 'pending',

@@ -5,7 +5,7 @@ export interface Order {
   id: string;
   customerName: string;
   total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered';
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   date: string;
   tenantId: string;
   items: any[];
@@ -13,8 +13,11 @@ export interface Order {
 
 interface OrderState {
   orders: Order[];
-  addOrder: (order: Order) => void;
-  updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  isLoading: boolean;
+  error: string | null;
+  fetchOrders: (organizationId?: string) => Promise<void>;
+  addOrder: (order: Order) => Promise<boolean>;
+  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<boolean>;
 }
 
 const INITIAL_ORDERS: Order[] = [
@@ -26,16 +29,96 @@ const INITIAL_ORDERS: Order[] = [
 
 export const useOrderStore = create<OrderState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       orders: INITIAL_ORDERS,
-      addOrder: (order) => set((state) => ({ 
-        orders: [order, ...state.orders] 
-      })),
-      updateOrderStatus: (orderId, status) => set((state) => ({
-        orders: state.orders.map((o) => 
-          o.id === orderId ? { ...o, status } : o
-        )
-      })),
+      isLoading: false,
+      error: null,
+
+      fetchOrders: async (organizationId = 'o1') => {
+        set({ isLoading: true, error: null });
+        try {
+          const res = await fetch(`/api/orders?organizationId=${organizationId}`).then(r => r.json());
+          if (res.success && Array.isArray(res.data)) {
+            const backendOrders = res.data.map((o: any) => ({
+              id: o.orderNumber || o.id,
+              customerName: o.customerThirdPartyId || 'Client',
+              total: o.totalAmount || o.subtotalAmount || 0,
+              status: o.status?.toLowerCase() || 'pending',
+              date: new Date(o.createdAt || Date.now()).toLocaleDateString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              tenantId: 't1', // fallback
+              items: o.lines || [],
+            }));
+            set({ orders: backendOrders, isLoading: false });
+          } else {
+            set({ error: res.message || 'Failed to fetch orders', isLoading: false });
+          }
+        } catch (err: any) {
+          set({ error: err.message || 'Error fetching orders', isLoading: false });
+        }
+      },
+
+      addOrder: async (order) => {
+        const reqBody = {
+          customerThirdPartyId: order.customerName,
+          orderNumber: order.id,
+          currency: 'FCFA',
+          lines: order.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.price,
+          })),
+        };
+
+        try {
+          const res = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqBody),
+          }).then(r => r.json());
+
+          if (res.success) {
+            await get().fetchOrders();
+            return true;
+          }
+          return false;
+        } catch (err) {
+          console.error('Error adding order:', err);
+          return false;
+        }
+      },
+
+      updateOrderStatus: async (orderId, status) => {
+        try {
+          let url = `/api/orders/${orderId}`;
+          let method = 'PATCH';
+
+          if (status === 'delivered') {
+            url = `/api/orders/${orderId}/confirm`;
+            method = 'POST';
+          } else if (status === 'cancelled') {
+            url = `/api/orders/${orderId}/cancel`;
+            method = 'POST';
+          }
+
+          const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: method === 'PATCH' ? JSON.stringify({ status }) : undefined,
+          }).then(r => r.json());
+
+          if (res.success) {
+            await get().fetchOrders();
+            return true;
+          }
+          return false;
+        } catch (err) {
+          console.error('Error updating order status:', err);
+          return false;
+        }
+      },
     }),
     {
       name: 'ksm-order-storage',
