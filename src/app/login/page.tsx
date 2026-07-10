@@ -3,17 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, ArrowRight } from 'lucide-react';
 
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function LoginPage() {
-  const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tenantId = params.tenantId as string;
   
   const isRegistered = searchParams.get('registered') === 'true';
   const requiresVerification = searchParams.get('verify') === 'true';
@@ -34,7 +32,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/customer-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, organizationId: tenantId })
+        body: JSON.stringify({ email, code })
       });
       const data = await res.json();
       
@@ -46,8 +44,8 @@ export default function LoginPage() {
           useCartStore.getState().clearCart();
         }
         
-        // Rediriger vers l'url de redirection ou l'accueil de la boutique après succès
-        const redirectUrl = searchParams.get('redirect') || `/${tenantId}`;
+        // Rediriger vers l'url de redirection ou l'accueil
+        const redirectUrl = searchParams.get('redirect') || `/`;
         router.push(redirectUrl);
       } else {
         setError(data.message || 'Identifiants invalides');
@@ -155,8 +153,8 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center">
           <p className="text-sm font-bold text-zinc-600">
-            Nouveau sur cette boutique ?{' '}
-            <Link href={`/${tenantId}/signup`} className="text-blue-600 hover:text-blue-500 transition-colors">
+            Nouveau sur la plateforme ?{' '}
+            <Link href={`/signup`} className="text-blue-600 hover:text-blue-500 transition-colors">
               Créer un compte
             </Link>
           </p>

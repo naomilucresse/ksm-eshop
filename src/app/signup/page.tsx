@@ -3,13 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Building2, ArrowRight } from 'lucide-react';
 
 export default function SignupPage() {
-  const params = useParams();
   const router = useRouter();
-  const tenantId = params.tenantId as string;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,16 +25,16 @@ export default function SignupPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, code, organizationId: tenantId })
+        body: JSON.stringify({ name, email, code })
       });
       const data = await res.json();
       
       if (data.success || res.ok) {
         // Rediriger vers login après succès
         if (data.emailVerificationRequired) {
-          router.push(`/${tenantId}/login?registered=true&verify=true`);
+          router.push(`/login?registered=true&verify=true`);
         } else {
-          router.push(`/${tenantId}/login?registered=true`);
+          router.push(`/login?registered=true`);
         }
       } else {
         setError(data.message || 'Erreur lors de l\'inscription');
@@ -59,7 +57,7 @@ export default function SignupPage() {
             Inscription
           </h2>
           <p className="mt-2 text-sm font-bold text-zinc-500 uppercase tracking-widest">
-            Devenez client de cette boutique
+            Rejoignez la plateforme KSM
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSignup}>
@@ -125,7 +123,7 @@ export default function SignupPage() {
         <div className="mt-6 text-center">
           <p className="text-sm font-bold text-zinc-600">
             Déjà client ?{' '}
-            <Link href={`/${tenantId}/login`} className="text-zinc-900 underline hover:text-zinc-700 transition-colors">
+            <Link href={`/login`} className="text-zinc-900 underline hover:text-zinc-700 transition-colors">
               Connectez-vous
             </Link>
           </p>
