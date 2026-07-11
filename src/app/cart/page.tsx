@@ -10,7 +10,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function CartPage() {
-  const { tenantId } = useParams();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const { items, removeItem, updateQuantity } = useCartStore();
@@ -37,7 +36,7 @@ export default function CartPage() {
         </div>
         <h1 className="text-3xl font-black text-zinc-900 uppercase italic tracking-tighter text-center">Votre panier est vide</h1>
         <p className="mt-2 text-lg font-bold text-zinc-400 text-center">Commencez vos achats pour synchroniser vos stocks.</p>
-        <Link href={`/${tenantId}/products`} className="mt-10">
+        <Link href={`/`} className="mt-10">
           <Button className="h-16 px-8 gap-3 bg-zinc-900 font-black uppercase italic tracking-tighter transition-all hover:scale-105">
             <ArrowLeft className="h-5 w-5" /> Explorer le catalogue
           </Button>
@@ -123,7 +122,7 @@ export default function CartPage() {
               </div>
               
               <div className="mt-10 space-y-4">
-                <Link href={`/${tenantId}/checkout`} className="block w-full">
+                <Link href={`/checkout`} className="block w-full">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 h-20 text-xl font-black uppercase italic tracking-tighter shadow-xl shadow-blue-100 transition-all hover:scale-[1.02]">
                     Passer à la paye <ArrowLeft className="ml-3 h-6 w-6 rotate-180" />
                   </Button>

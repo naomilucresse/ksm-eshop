@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
 import { getLocalReservedQuantities } from '@/lib/local-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
@@ -96,16 +98,76 @@ export async function GET(request: NextRequest) {
   ];
 
   if (organizationId === 'ALL') {
-    return Response.json({
-      success: true,
-      data: mockProducts
-    });
-  }
+    // Fetch all organizations first
+    const orgsResult = await backendFetch('/api/organizations', { method: 'GET' });
+    let orgs: any[] = [];
+    if (orgsResult.success && orgsResult.data) {
+      const raw = orgsResult.data;
+      if (Array.isArray(raw)) orgs = raw;
+      else if (raw?.content && Array.isArray(raw.content)) orgs = raw.content;
+      else if (raw?.data && Array.isArray(raw.data)) orgs = raw.data;
+      else if (raw && typeof raw === 'object' && raw.id) orgs = [raw];
+    }
 
-  if (organizationId === 'demo-org') {
+    if (orgs.length === 0) {
+      return Response.json({ success: true, data: mockProducts }); // fallback if no orgs
+    }
+
+    // Fetch products for each organization
+    const productPromises = orgs.map(async (org) => {
+      try {
+        const prodRes = await backendFetch('/api/products', {
+          method: 'GET',
+          params: { organizationId: org.id, familyCode, status },
+          headers: {
+            'X-Organization-Id': org.id
+          }
+        });
+        
+        console.log(`[DEBUG] prodRes for ${org.id}:`, JSON.stringify(prodRes).substring(0, 200));
+
+        if (prodRes.success && prodRes.data) {
+          let content = prodRes.data.content || prodRes.data;
+          if (!Array.isArray(content)) content = [];
+          
+          // Apply reserved quantities
+          const reserved = getLocalReservedQuantities(org.id);
+          content.forEach((p: any) => {
+            // Assign tenantName/organizationId for the frontend
+            p.organizationId = org.id;
+            p.tenantName = org.displayName || org.shortName || org.legalName || org.code || org.name || org.id;
+            
+            if (reserved[p.id]) {
+              if (typeof p.quantity === 'number') p.quantity = Math.max(0, p.quantity - reserved[p.id]);
+              if (typeof p.inStock === 'number') p.inStock = Math.max(0, p.inStock - reserved[p.id]);
+              if (p.variants && Array.isArray(p.variants)) {
+                 p.variants.forEach((v: any) => {
+                   if (reserved[v.id]) {
+                     if (typeof v.quantity === 'number') v.quantity = Math.max(0, v.quantity - reserved[v.id]);
+                     if (typeof v.inStock === 'number') v.inStock = Math.max(0, v.inStock - reserved[v.id]);
+                   }
+                 });
+              }
+            }
+          });
+          return content;
+        }
+      } catch (err) {
+        console.error(`Failed to fetch products for org ${org.id}`, err);
+      }
+      return [];
+    });
+
+    const allProductsArrays = await Promise.all(productPromises);
+    const allProducts = allProductsArrays.flat();
+
+    if (allProducts.length === 0) {
+      return Response.json({ success: true, data: mockProducts }); // fallback if empty
+    }
+
     return Response.json({
       success: true,
-      data: mockProducts.filter(p => p.organizationId === 'demo-org' || p.organizationId === 'o1')
+      data: allProducts
     });
   }
 

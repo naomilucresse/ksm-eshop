@@ -14,7 +14,6 @@ import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useProductStore } from '@/store/useProductStore';
 
 export default function CheckoutPage() {
-  const { tenantId } = useParams();
   const router = useRouter();
   const { items, clearCart } = useCartStore();
   const { addOrder } = useOrderStore();
@@ -45,51 +44,45 @@ export default function CheckoutPage() {
     // Simuler la connexion au microservice ePay KSM
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
-    const tenant = TENANTS.find(t => t.slug === tenantId);
-    const actualTenantId = tenant?.id || (typeof tenantId === 'string' ? tenantId : 't1');
-    const randomId = Math.floor(100000 + Math.random() * 900000);
-    const orderId = `KSM-${randomId}`;
-
     const displayName = customerName || 'Client Anonyme';
-
-    const orderPayload = {
-      id: orderId,
+    const payload = {
+      items,
       customerName: displayName,
-      customerId: user?.id || '00000000-0000-0000-0000-000000000000',
-      total: totalPrice,
-      status: 'pending' as const,
-      date: new Date().toLocaleDateString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      tenantId: actualTenantId,
-      items: items.map(item => ({
-        id: item.variantId,
-        name: item.name,
-        image: item.image,
-        quantity: item.quantity,
-        price: item.price
-      }))
+      customerId: user?.id || '00000000-0000-0000-0000-000000000000'
     };
 
-    // Optimistically decrease stock in useProductStore
-    const { decreaseProductStock } = useProductStore.getState();
-    items.forEach(item => {
-      decreaseProductStock(item.productId || item.variantId.replace('v-', ''), item.quantity);
-    });
-    
-    const newOrder: Order = {
-      ...orderPayload,
-      items: [...items],
-    };
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      
+      if (data.success && data.data && data.data.length > 0) {
+         setOrderData({
+            id: data.data.map((o: any) => o.id).join(', '),
+            total: data.data.reduce((sum: number, o: any) => sum + o.total, 0),
+            items: data.data.flatMap((o: any) => o.items)
+         });
+         
+         // Optimistically decrease stock in useProductStore
+         const { decreaseProductStock } = useProductStore.getState();
+         items.forEach(item => {
+           decreaseProductStock(item.productId || item.variantId.replace('v-', ''), item.quantity);
+         });
 
-    // L'appel POST bon-commande est maintenant géré par addOrder dans le store
-
-    addOrder(newOrder);
-    setOrderData(newOrder);
-    setIsProcessing(false);
-    setIsCompleted(true);
-    clearCart();
+         setIsProcessing(false);
+         setIsCompleted(true);
+         clearCart();
+      } else {
+         console.error(data.message);
+         setIsProcessing(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setIsProcessing(false);
+    }
   };
 
   if (!isMounted) return null;
@@ -157,7 +150,7 @@ export default function CheckoutPage() {
         </Card>
 
         <div className="mt-12 text-center">
-          <Button onClick={() => router.push(`/${tenantId}`)} className="bg-zinc-900 h-16 px-10 text-lg font-black uppercase italic tracking-tighter">
+          <Button onClick={() => router.push(`/`)} className="bg-zinc-900 h-16 px-10 text-lg font-black uppercase italic tracking-tighter">
             Retourner à l&apos;accueil
           </Button>
         </div>

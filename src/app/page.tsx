@@ -2,14 +2,17 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Loader2, AlertTriangle, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Organization, Product } from '@/lib/types';
 import { GlobalNavbar } from '@/components/global/GlobalNavbar';
 import { useCartStore } from '@/store/useCartStore';
+import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 
 export default function GlobalMarketplacePage() {
+  const router = useRouter();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +85,7 @@ export default function GlobalMarketplacePage() {
 
     // Category filter
     if (selectedCategory && selectedCategory !== 'all') {
-      result = result.filter(p => p.categoryId === selectedCategory);
+      result = result.filter((p: any) => p.categoryCode === selectedCategory || p.familyCode === selectedCategory);
     }
 
     // Sorting
@@ -95,6 +98,22 @@ export default function GlobalMarketplacePage() {
     return result;
   }, [products, searchQuery, selectedCategory, sortOrder]);
 
+  const dynamicCategories = useMemo(() => {
+    const map = new Map<string, string>();
+    products.forEach((p: any) => {
+      const cId = p.categoryCode || p.familyCode;
+      if (!cId) return;
+      
+      // On utilise categoryCode ou familyCode comme label pour l'instant
+      const cName = p.categoryCode || p.familyCode;
+      if (!map.has(cId)) {
+        map.set(cId, cName);
+      }
+    });
+    
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [products]);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-FR').format(price);
   };
@@ -106,6 +125,7 @@ export default function GlobalMarketplacePage() {
         onSearch={setSearchQuery}
         onCategorySelect={setSelectedCategory}
         selectedCategory={selectedCategory}
+        categories={dynamicCategories}
       />
 
       <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 py-8">
@@ -193,6 +213,11 @@ export default function GlobalMarketplacePage() {
                     <Button 
                       onClick={(e) => {
                         e.preventDefault();
+                        if (!useCustomerAuthStore.getState().isAuthenticated) {
+                          const currentPath = window.location.pathname;
+                          router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+                          return;
+                        }
                         addItem({
                           productId: product.id,
                           name: product.name,
@@ -202,7 +227,7 @@ export default function GlobalMarketplacePage() {
                           tenantId: product.organizationId
                         });
                       }}
-                      className="w-full bg-[#ffd814] hover:bg-[#f7ca00] text-zinc-900 font-bold border-none shadow-sm rounded-full text-sm h-9"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold border-none shadow-sm rounded-full text-sm h-9"
                     >
                       Ajouter au panier
                     </Button>
@@ -221,22 +246,39 @@ export default function GlobalMarketplacePage() {
       </main>
 
       {/* Footer Pro - Client side */}
-      <footer className="py-12 bg-[#232f3e] text-zinc-300 mt-auto">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="h-6 w-6 bg-amber-500 rounded flex items-center justify-center">
-              <span className="text-zinc-900 font-bold text-sm leading-none">K</span>
+      <footer className="py-16 bg-zinc-900 text-zinc-400 border-t-2 border-zinc-950 mt-auto">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-lg">K</span>
+                </div>
+                <span className="text-lg font-black tracking-tight text-white uppercase italic">KSM eShop</span>
+              </div>
+              <p className="text-xs font-bold leading-relaxed max-w-sm">
+                La première plateforme camerounaise multi-boutiques connectée en direct avec le progiciel Kernel Core pour une gestion logistique parfaite.
+              </p>
             </div>
-            <span className="text-lg font-black tracking-tight text-white">KSM eShop</span>
+            <div className="space-y-4">
+              <h3 className="text-white font-black uppercase text-xs tracking-widest">Liens Utiles</h3>
+              <ul className="space-y-2 text-xs font-bold uppercase">
+                <li><Link href="#features" className="hover:text-white transition-colors">Fonctionnalités</Link></li>
+                <li><Link href="#tenants" className="hover:text-white transition-colors">Explorer les Boutiques</Link></li>
+                <li><Link href="/admin/organizations" className="hover:text-white transition-colors">Espace Gérant</Link></li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-white font-black uppercase text-xs tracking-widest">Informations</h3>
+              <p className="text-xs font-bold">Douala, Cameroun</p>
+              <p className="text-xs font-bold text-zinc-500">Intégration technologique de pointe pour les PME locales.</p>
+            </div>
           </div>
-          <p className="text-xs font-medium mb-8 max-w-md mx-auto">
-            La première plateforme camerounaise multi-boutiques connectée en direct avec le progiciel Kernel Core pour une gestion logistique parfaite.
-          </p>
-          <div className="border-t border-zinc-700 pt-6 flex flex-col items-center gap-2">
-            <p className="text-[11px] font-bold text-zinc-500">&copy; 2026 KSM Core System. Tous droits réservés.</p>
-            <div className="flex items-center gap-2 text-zinc-500">
-              <ShieldCheck className="h-3 w-3" />
-              <span className="text-[10px] uppercase font-bold tracking-widest">Sécurité Chiffrée Active</span>
+          <div className="border-t border-zinc-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">&copy; {new Date().getFullYear()} KSM Core System. Tous droits réservés.</p>
+            <div className="flex items-center gap-2 text-zinc-600">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="text-[10px] uppercase font-black tracking-widest">Sécurité Chiffrée Active</span>
             </div>
           </div>
         </div>
