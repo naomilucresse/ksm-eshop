@@ -2,14 +2,14 @@ import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { getKernelBase, getKernelBaseHeaders } from '@/lib/kernel-auth';
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ organizationId: string }> }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ orgId: string }> }) {
   const cookieStore = await cookies();
   const adminToken = cookieStore.get('adminToken')?.value;
   if (!adminToken) {
     return Response.json({ success: false, message: 'Non autorisé.' }, { status: 401 });
   }
 
-  const { organizationId } = await params;
+  const { orgId } = await params;
 
   try {
     const body = await request.json();
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       isActive: body.isActive !== undefined ? body.isActive : true
     };
 
-    const res = await fetch(`${getKernelBase()}/api/organizations/${organizationId}`, {
+    const res = await fetch(`${getKernelBase()}/api/organizations/${orgId}`, {
       method: 'PATCH',
       headers: {
         ...getKernelBaseHeaders(),
