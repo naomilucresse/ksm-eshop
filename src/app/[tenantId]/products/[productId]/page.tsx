@@ -216,16 +216,27 @@ export default function ProductDetailPage() {
                 <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 leading-tight mb-4">{product.name}</h1>
                 <p className="text-zinc-500 font-medium leading-relaxed mb-6">{product.description || 'Aucune description disponible pour ce produit.'}</p>
                 
-                {/* Prix */}
+                {/* Prix de Détail & Prix de Gros */}
                 <div className="flex flex-col gap-3 mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
-                      <Tag className="h-3.5 w-3.5" /> Prix
+                      <Tag className="h-3.5 w-3.5" /> Prix de Détail
                     </span>
-                    <span className="text-3xl font-black text-zinc-900">
-                      {formatPrice(product.unitPrice || 0)} <span className="text-lg font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
+                    <span className="text-xl font-bold text-zinc-900">
+                      {formatPrice(product.unitPrice || 0)} <span className="text-xs font-semibold text-zinc-500">{product.currency || 'FCFA'}</span>
                     </span>
                   </div>
+
+                  {((product as any).wholesalePrice && (product as any).wholesalePrice < (product.unitPrice || 0)) && (
+                    <div className="flex items-center justify-between border-t border-zinc-200/60 pt-3">
+                      <span className="flex items-center gap-1.5 text-xs font-black text-amber-600 uppercase tracking-wider">
+                        <Tag className="h-3.5 w-3.5" /> Prix de Gros <span className="text-[9px] lowercase font-medium text-amber-500">(dès 5 unités)</span>
+                      </span>
+                      <span className="text-xl font-black text-amber-600">
+                        {formatPrice((product as any).wholesalePrice)} <span className="text-xs font-bold text-amber-500">{product.currency || 'FCFA'}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Stock */}

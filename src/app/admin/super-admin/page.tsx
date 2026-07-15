@@ -167,8 +167,7 @@ export default function SuperAdminPage() {
             </CardContent>
           </Card>
 
-          <Card className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'users' ? 'border-indigo-600 ring-4 ring-indigo-600/20' : 'border-zinc-200 hover:border-indigo-500'}`}
-            onClick={() => setActiveTab('users')}>
+          <Card className="border-2 shadow-xl rounded-3xl bg-white overflow-hidden border-zinc-200 col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
               <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
                 <Users className="h-6 w-6" />
@@ -323,33 +322,7 @@ export default function SuperAdminPage() {
         )}
 
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-3xl p-8 border-2 border-zinc-200 shadow-xl animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 mb-6 pb-4 border-b border-zinc-100">
-              Utilisateurs Locaux ({stats.users?.length || 0})
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(stats.users || []).map((u: any) => (
-                <div key={u.id} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-zinc-100 hover:border-indigo-200 transition-colors bg-zinc-50">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-                    {(u.firstName?.[0] || u.username?.[0] || '?').toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-bold text-zinc-900 text-sm">{u.firstName} {u.lastName}</p>
-                    <p className="text-xs text-zinc-400 font-mono">{u.email || u.username}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {(!stats.users || stats.users.length === 0) && (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-                <p className="text-zinc-500 font-bold uppercase tracking-widest">Aucun utilisateur trouvé</p>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Organizations Tab (All Orgs) */}
         {activeTab === 'organizations' && (

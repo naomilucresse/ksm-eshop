@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
-import { getLocalUsers } from '@/lib/local-db';
 import { getKernelToken } from '@/lib/kernel-auth';
 
 export const dynamic = 'force-dynamic';
@@ -153,8 +152,42 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // ── 6. Comptage des utilisateurs locaux ─────────────────────────────────
-    const users = await getLocalUsers();
+    // ── 6. Charger dynamiquement les utilisateurs/tiers depuis toutes les orgs Kernel ──
+    const allUsersMap = new Map<string, any>();
+    
+    await Promise.allSettled(
+      organizations.map(async (org: any) => {
+        try {
+          const res = await backendFetch(`/api/third-parties?organizationId=${org.id}&size=1000`, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${adminToken}`,
+              'X-Organization-Id': org.id,
+            },
+          });
+          if (res.success && res.data) {
+            const list: any[] = Array.isArray(res.data)
+              ? res.data
+              : res.data.content || res.data.data || [];
+            
+            for (const tp of list) {
+              const emailKey = (tp.email || tp.primaryEmail || tp.code || tp.id || '').toLowerCase().trim();
+              if (emailKey && !allUsersMap.has(emailKey)) {
+                allUsersMap.set(emailKey, {
+                  id: tp.id,
+                  email: tp.email || tp.primaryEmail || '',
+                  name: tp.name || tp.displayName || tp.code || 'Client',
+                  phone: tp.phone || tp.primaryPhone || '',
+                  organizationId: org.id
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      })
+    );
+
+    const users = Array.from(allUsersMap.values());
     const totalUsers = users.length;
 
     // ── 7. Filtrer seulement les orgs qui ont des commandes ─────────────────
@@ -172,7 +205,6 @@ export async function GET(request: NextRequest) {
         orgsWithOrders: orgsWithOrders.length,
         orders: allOrders,
         organizations,
-        users,
       },
     });
   } catch (error: any) {
