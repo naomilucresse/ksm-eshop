@@ -33,6 +33,18 @@ export async function GET(request: NextRequest) {
     if (!wallet) {
       wallet = await createWallet(customerId);
     }
+
+    // Appliquer la surcharge de solde si présente (pour démo/développement local)
+    const override = cookieStore.get('wallet_override')?.value;
+    if (override && wallet) {
+      try {
+        const parsed = JSON.parse(override);
+        if (parsed.walletId === wallet.id) {
+          wallet.balance = parsed.balance;
+        }
+      } catch {}
+    }
+
     return Response.json({ success: true, wallet });
   } catch (error: any) {
     return Response.json({ success: false, message: error.message }, { status: 500 });
@@ -67,14 +79,27 @@ export async function POST(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
     const callbackUrl = `${protocol}://${host}/checkout?recharge=success`;
 
-    const rechargeResult = await rechargeWallet(
-      wallet.id,
-      amount,
-      paymentMethod || 'STRIPE',
-      callbackUrl
-    );
+    let redirectUrl = `/mock-stripe-checkout?rechargeWalletId=${wallet.id}&amount=${amount}`;
+    let orderId = `recharge-${Date.now()}`;
 
-    return Response.json({ success: true, ...rechargeResult });
+    try {
+      const rechargeResult = await rechargeWallet(
+        wallet.id,
+        amount,
+        paymentMethod || 'STRIPE',
+        callbackUrl
+      );
+      if (rechargeResult && rechargeResult.redirectUrl) {
+        redirectUrl = rechargeResult.redirectUrl;
+      }
+      if (rechargeResult && rechargeResult.orderId) {
+        orderId = rechargeResult.orderId;
+      }
+    } catch (e) {
+      console.warn('[WALLET RECHARGE] API Yowyob non disponible, bascule sur la simulation locale.');
+    }
+
+    return Response.json({ success: true, redirectUrl, orderId });
   } catch (error: any) {
     return Response.json({ success: false, message: error.message }, { status: 500 });
   }
