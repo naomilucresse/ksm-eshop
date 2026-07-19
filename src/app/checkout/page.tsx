@@ -35,20 +35,42 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  const [wallet, setWallet] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'WALLET'>('WALLET');
+  const [isRecharging, setIsRecharging] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadWallet() {
+      try {
+        const res = await fetch('/api/payments/my-wallet');
+        const data = await res.json();
+        if (data.success && data.wallet) {
+          setWallet(data.wallet);
+        }
+      } catch (err) {
+        console.error('Error loading wallet:', err);
+      }
+    }
+    if (user) {
+      loadWallet();
+    }
+  }, [user]);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
 
     setIsProcessing(true);
-    
-    // Simuler la connexion au microservice ePay KSM
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
+    setWalletError(null);
+
     const displayName = customerName || 'Client Anonyme';
     const payload = {
       items,
       customerName: displayName,
-      customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000'
+      customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000',
+      paymentMethod: paymentMethod
     };
 
     try {
@@ -60,31 +82,55 @@ export default function CheckoutPage() {
       const data = await res.json();
       
       if (data.success && data.stripeCheckoutUrl) {
-         // Rediriger vers l'URL de paiement Stripe (ou fallback local)
          if (data.stripeCheckoutUrl.startsWith('http')) {
            window.location.href = data.stripeCheckoutUrl;
          } else {
            router.push(data.stripeCheckoutUrl);
          }
-      } else if (data.success && data.data && data.data.length > 0) {
-         // Sécurité au cas où on n'a pas d'URL (ne devrait pas arriver avec le fallback)
-         const orderIds = data.data.map((o: any) => o.id).join(',');
-         router.push(`/checkout/success?orderIds=${orderIds}`);
+      } else if (data.success && data.paid) {
+         clearCart();
+         router.push('/checkout/success?paid=true');
       } else {
-         console.error(data.message);
+         setWalletError(data.message || 'Erreur lors de la validation.');
          setIsProcessing(false);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setWalletError(err.message || 'Une erreur réseau est survenue.');
       setIsProcessing(false);
+    }
+  };
+
+  const handleRecharge = async () => {
+    if (!wallet) return;
+    const amt = parseFloat(rechargeAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Veuillez entrer un montant valide supérieur à 0.');
+      return;
+    }
+
+    setIsRecharging(true);
+    try {
+      const res = await fetch('/api/payments/my-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amt, paymentMethod: 'STRIPE' })
+      });
+      const data = await res.json();
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        alert(data.message || 'Erreur lors de l\'initiation de la recharge.');
+      }
+    } catch {
+      alert('Une erreur réseau est survenue.');
+    } finally {
+      setIsRecharging(false);
     }
   };
 
   if (!isMounted) return null;
 
   const inputClasses = "w-full rounded-lg border-2 border-zinc-300 bg-zinc-50 p-3 text-sm font-bold text-zinc-900 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-zinc-400";
-
-
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
@@ -96,6 +142,12 @@ export default function CheckoutPage() {
         <div className="w-20" />
       </div>
       
+      {walletError && (
+        <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl text-sm font-bold">
+          {walletError}
+        </div>
+      )}
+
       <form onSubmit={handleCheckout} className="grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-10">
           <Card className="border-2 border-zinc-200 shadow-lg">
@@ -124,26 +176,94 @@ export default function CheckoutPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-4 border-blue-600 bg-blue-50 overflow-hidden shadow-xl">
-            <CardHeader className="bg-blue-600 text-white p-6">
+          <Card className="border-2 border-zinc-200 overflow-hidden shadow-xl">
+            <CardHeader className="bg-zinc-900 text-white p-6">
               <CardTitle className="text-xl flex items-center gap-3 uppercase italic tracking-tighter font-black text-white">
                 <Wallet className="h-6 w-6 text-white" /> 
-                Paiement Sécurisé : ePay KSM
+                Méthode de Règlement
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 bg-white">
-              <div className="rounded-2xl border-2 border-blue-600 bg-blue-50/30 p-8 transition-all flex items-center justify-between shadow-inner">
+            <CardContent className="p-8 bg-white space-y-6">
+              {/* Option Portefeuille KSM */}
+              <div 
+                onClick={() => setPaymentMethod('WALLET')}
+                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  paymentMethod === 'WALLET' ? 'border-blue-600 bg-blue-50/20 shadow-md' : 'border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
                 <div>
-                  <p className="text-xl font-black text-zinc-900 uppercase tracking-tighter italic text-left">Portefeuille ePay</p>
-                  <p className="text-sm font-bold text-zinc-500 mt-2 text-left">Prélèvement immédiat sur votre compte central.</p>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="radio" 
+                      name="paymentMethod" 
+                      checked={paymentMethod === 'WALLET'} 
+                      onChange={() => setPaymentMethod('WALLET')}
+                      className="h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500" 
+                    />
+                    <p className="text-lg font-black text-zinc-900 uppercase tracking-tighter italic">Portefeuille ePay KSM</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-500 mt-1 pl-6">
+                    {wallet 
+                      ? `Solde actuel : ${formatPrice(wallet.balance)}` 
+                      : 'Chargement de votre solde...'
+                    }
+                  </p>
                 </div>
-                <div className="h-14 w-24 bg-blue-600 rounded-xl flex items-center justify-center shadow-xl shadow-blue-200">
-                  <span className="text-white font-black text-xl italic uppercase">ePay</span>
+                <div className="h-10 px-4 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-200 flex-shrink-0 self-start sm:self-center">
+                  <span className="text-white font-black text-sm italic uppercase">ePay KSM</span>
                 </div>
               </div>
-              <p className="mt-6 text-sm font-bold text-blue-800 bg-blue-100 p-4 rounded-lg border border-blue-200">
-                INFO : Pour cette phase pilote, seul le paiement via ePay est autorisé pour garantir la synchronisation instantanée des stocks.
-              </p>
+
+              {/* Option Recharge Solde si Portefeuille sélectionné et solde insuffisant */}
+              {paymentMethod === 'WALLET' && wallet && wallet.balance < totalPrice && (
+                <div className="p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl space-y-4">
+                  <p className="text-xs font-bold text-amber-800">
+                    ⚠️ Votre solde est insuffisant pour finaliser cet achat. Il vous manque <strong>{formatPrice(totalPrice - wallet.balance)}</strong>. Rechargez votre portefeuille instantanément :
+                  </p>
+                  <div className="flex gap-3">
+                    <input 
+                      type="number"
+                      className="flex-1 rounded-lg border-2 border-amber-300 bg-white p-2 text-sm font-bold text-zinc-900 focus:border-amber-500 focus:outline-none"
+                      placeholder="Montant à recharger (CFA)"
+                      value={rechargeAmount}
+                      onChange={(e) => setRechargeAmount(e.target.value)}
+                    />
+                    <Button 
+                      type="button"
+                      onClick={handleRecharge}
+                      disabled={isRecharging}
+                      className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase text-xs px-4"
+                    >
+                      {isRecharging ? 'Redirection...' : 'Recharger'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Option Carte / Stripe direct */}
+              <div 
+                onClick={() => setPaymentMethod('STRIPE')}
+                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  paymentMethod === 'STRIPE' ? 'border-blue-600 bg-blue-50/20 shadow-md' : 'border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="radio" 
+                      name="paymentMethod" 
+                      checked={paymentMethod === 'STRIPE'} 
+                      onChange={() => setPaymentMethod('STRIPE')}
+                      className="h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500" 
+                    />
+                    <p className="text-lg font-black text-zinc-900 uppercase tracking-tighter italic">Paiement Direct (Stripe)</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-500 mt-1 pl-6">Règlement direct par carte bancaire.</p>
+                </div>
+                <div className="h-10 px-4 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 self-start sm:self-center">
+                  <span className="text-white font-black text-sm italic uppercase">Stripe</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

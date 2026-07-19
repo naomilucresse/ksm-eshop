@@ -259,6 +259,59 @@ export async function POST(request: NextRequest) {
       // Ngrok n'est probablement pas lancé sur 4040, on garde le baseUrl par défaut
     }
 
+    // Si paiement par portefeuille KSM
+    if (body.paymentMethod === 'WALLET') {
+      try {
+        const { getWalletByOwner, createWallet, canOperate, payWithWallet } = await import('@/lib/payments-api');
+        
+        // 1. Récupérer ou créer le portefeuille de l'acheteur
+        const buyerId = customerId || 'guest-buyer';
+        let buyerWallet = await getWalletByOwner(buyerId);
+        if (!buyerWallet) {
+          buyerWallet = await createWallet(buyerId);
+        }
+
+        // 2. Récupérer ou créer le portefeuille de la boutique (tenant)
+        let merchantWallet = await getWalletByOwner(mainTenantId);
+        if (!merchantWallet) {
+          merchantWallet = await createWallet(mainTenantId);
+        }
+
+        // 3. Vérifier le solde
+        const hasEnough = await canOperate(buyerWallet.id, grandTotal);
+        if (!hasEnough && buyerWallet.balance < grandTotal) {
+          return Response.json({ 
+            success: false, 
+            errorCode: 'INSUFFICIENT_FUNDS',
+            message: `Solde insuffisant. Votre solde actuel est de ${buyerWallet.balance} FCFA. Il vous manque ${grandTotal - buyerWallet.balance} FCFA.`,
+            balance: buyerWallet.balance,
+            missingAmount: grandTotal - buyerWallet.balance,
+            walletId: buyerWallet.id
+          }, { status: 400 });
+        }
+
+        // 4. Procéder au virement
+        await payWithWallet(buyerWallet.id, merchantWallet.id, grandTotal, `Paiement des commandes KSM: ${orderIds}`, { orderIds });
+
+        // 5. Marquer la commande locale comme payée
+        // (En prod, on modifierait l'état de la commande sur le Kernel)
+        ordersCreated.forEach((o: any) => {
+          o.paymentStatus = 'PAID';
+          o.status = 'CONFIRMED';
+        });
+
+        return Response.json({ 
+          success: true, 
+          paid: true, 
+          message: 'Paiement effectué avec succès par portefeuille KSM eShop.', 
+          data: ordersCreated 
+        });
+      } catch (walletError: any) {
+        console.error('[CHECKOUT WALLET ERROR]', walletError);
+        return Response.json({ success: false, message: walletError.message || 'Erreur lors du virement de portefeuille.' }, { status: 400 });
+      }
+    }
+
     const paymentPayload = {
       amount: grandTotal,
       method: 'STRIPE',
