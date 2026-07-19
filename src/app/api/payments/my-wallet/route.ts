@@ -34,17 +34,6 @@ export async function GET(request: NextRequest) {
       wallet = await createWallet(customerId);
     }
 
-    // Appliquer la surcharge de solde si présente (pour démo/développement local)
-    const override = cookieStore.get('wallet_override')?.value;
-    if (override && wallet) {
-      try {
-        const parsed = JSON.parse(override);
-        if (parsed.walletId === wallet.id) {
-          wallet.balance = parsed.balance;
-        }
-      } catch {}
-    }
-
     return Response.json({ success: true, wallet });
   } catch (error: any) {
     return Response.json({ success: false, message: error.message }, { status: 500 });
@@ -69,55 +58,39 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, message: 'Montant invalide' }, { status: 400 });
     }
 
-    let wallet: any = null;
-    try {
-      wallet = await getWalletByOwner(customerId);
-      if (!wallet) {
-        wallet = await createWallet(customerId);
-      }
-    } catch (e) {
-      console.warn('[BFF MY-WALLET] Impossible de se connecter au Kernel pour le wallet. Utilisation du mode virtuel.');
-      wallet = {
-        id: `virtual-wallet-${customerId}`,
-        ownerId: customerId,
-        balance: 0,
-        currency: 'FCFA',
-        status: 'ACTIVE'
-      };
+    const wallet = await getWalletByOwner(customerId);
+    if (!wallet) {
+      return Response.json({ success: false, message: "Vous ne possédez pas encore de portefeuille actif sur le Kernel Core." }, { status: 400 });
     }
 
-    // Détection auto du site url pour le callback
+    // Détection auto du site url pour le callback de retour
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const callbackUrl = `${protocol}://${host}/checkout?recharge=success`;
+    const callbackUrl = `${protocol}://${host}/account/wallet?recharge=success`;
 
-    let redirectUrl = `/mock-stripe-checkout?rechargeWalletId=${wallet.id}&amount=${amount}`;
-    let orderId = `recharge-${Date.now()}`;
+    const rechargeResult = await rechargeWallet(
+      wallet.id,
+      amount,
+      {
+        provider: provider || 'MYCOOLPAY',
+        method: method || 'MOBILE_MONEY',
+        payerReference: payerReference || '',
+        currency: wallet.currency || 'FCFA'
+      },
+      callbackUrl
+    );
 
-    try {
-      const rechargeResult = await rechargeWallet(
-        wallet.id,
-        amount,
-        {
-          provider: provider || 'MYCOOLPAY',
-          method: method || 'MOBILE_MONEY',
-          payerReference: payerReference || '',
-          currency: wallet.currency || 'FCFA'
-        },
-        callbackUrl
-      );
-      if (rechargeResult && rechargeResult.redirectUrl) {
-        redirectUrl = rechargeResult.redirectUrl;
-      }
-      if (rechargeResult && rechargeResult.orderId) {
-        orderId = rechargeResult.orderId;
-      }
-    } catch (e) {
-      console.warn('[WALLET RECHARGE] API Yowyob non disponible, bascule sur la simulation locale.');
+    if (!rechargeResult.redirectUrl) {
+      throw new Error("Le Kernel Core n'a retourné aucun lien de redirection pour le paiement.");
     }
 
-    return Response.json({ success: true, redirectUrl, orderId });
+    return Response.json({ 
+      success: true, 
+      redirectUrl: rechargeResult.redirectUrl, 
+      orderId: rechargeResult.orderId 
+    });
   } catch (error: any) {
+    console.error('[WALLET RECHARGE ERROR]', error);
     return Response.json({ success: false, message: error.message }, { status: 500 });
   }
 }
