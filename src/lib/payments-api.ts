@@ -115,20 +115,32 @@ export async function payWithWallet(
 export async function rechargeWallet(
   walletId: string,
   amount: number,
-  paymentMethod: string = 'STRIPE',
-  callbackUrl: string
+  params: {
+    provider?: string;
+    method?: string;
+    payerReference?: string;
+    currency?: string;
+    clientId?: string;
+  } = {},
+  callbackUrl?: string
 ): Promise<{ redirectUrl?: string; orderId: string }> {
+  const payload = {
+    amount,
+    currency: params.currency || 'FCFA',
+    clientId: params.clientId || 'ksm-eshop-web',
+    provider: params.provider || 'MYCOOLPAY',
+    method: params.method || 'MOBILE_MONEY',
+    payerReference: params.payerReference || '',
+    idempotencyKey: `rec-${walletId}-${Date.now()}`
+  };
+
   const res = await fetch(`${getKernelBase()}/api/payments/wallets/${walletId}/recharge`, {
     method: 'POST',
     headers: {
       ...getKernelBaseHeaders(),
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      amount,
-      paymentMethod,
-      callbackUrl
-    }),
+    body: JSON.stringify(payload),
     cache: 'no-store'
   });
 
@@ -138,7 +150,7 @@ export async function rechargeWallet(
   }
 
   return {
-    redirectUrl: data.stripeCheckoutUrl || data.redirectUrl || data.checkoutUrl,
+    redirectUrl: data.stripeCheckoutUrl || data.redirectUrl || data.checkoutUrl || data.paymentUrl,
     orderId: data.orderId || data.id
   };
 }

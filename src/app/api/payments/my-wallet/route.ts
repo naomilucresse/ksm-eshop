@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { amount, paymentMethod } = await request.json();
+    const { amount, provider, method, payerReference } = await request.json();
     if (!amount || amount <= 0) {
       return Response.json({ success: false, message: 'Montant invalide' }, { status: 400 });
     }
@@ -86,7 +86,12 @@ export async function POST(request: NextRequest) {
       const rechargeResult = await rechargeWallet(
         wallet.id,
         amount,
-        paymentMethod || 'STRIPE',
+        {
+          provider: provider || 'MYCOOLPAY',
+          method: method || 'MOBILE_MONEY',
+          payerReference: payerReference || '',
+          currency: wallet.currency || 'FCFA'
+        },
         callbackUrl
       );
       if (rechargeResult && rechargeResult.redirectUrl) {
