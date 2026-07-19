@@ -69,9 +69,21 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, message: 'Montant invalide' }, { status: 400 });
     }
 
-    let wallet = await getWalletByOwner(customerId);
-    if (!wallet) {
-      wallet = await createWallet(customerId);
+    let wallet: any = null;
+    try {
+      wallet = await getWalletByOwner(customerId);
+      if (!wallet) {
+        wallet = await createWallet(customerId);
+      }
+    } catch (e) {
+      console.warn('[BFF MY-WALLET] Impossible de se connecter au Kernel pour le wallet. Utilisation du mode virtuel.');
+      wallet = {
+        id: `virtual-wallet-${customerId}`,
+        ownerId: customerId,
+        balance: 0,
+        currency: 'FCFA',
+        status: 'ACTIVE'
+      };
     }
 
     // Détection auto du site url pour le callback
