@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, ShoppingCart, User, Globe, ChevronDown, LogOut, Menu, CreditCard, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingCart, User, Globe, ChevronDown, LogOut, Menu, CreditCard, ShoppingBag, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import BankAccountModal from '../shop/BankAccountModal';
+import { formatPrice } from '@/lib/utils';
 
 interface Organization {
   id: string;
@@ -43,10 +44,25 @@ export function GlobalNavbar({
   const [orgPage, setOrgPage] = useState(0);
   const [orgSearch, setOrgSearch] = useState('');
   const ORGS_PER_PAGE = 8;
+  const [userWalletBalance, setUserWalletBalance] = useState<number | null>(null);
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    async function fetchWalletBalance() {
+      try {
+        const res = await fetch('/api/payments/my-wallet');
+        const data = await res.json();
+        if (data.success && data.wallet) {
+          setUserWalletBalance(data.wallet.balance);
+        }
+      } catch (err) {
+        console.error('Error fetching balance:', err);
+      }
+    }
+    if (isAuthenticated) {
+      fetchWalletBalance();
+    }
+  }, [isAuthenticated]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,8 +270,19 @@ export function GlobalNavbar({
                   <div className="px-4 py-2 mb-2 border-b border-zinc-100">
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Connecté en tant que</p>
                     <p className="text-sm font-black text-zinc-900 truncate">{displayName}</p>
+                    {userWalletBalance !== null && (
+                      <p className="text-xs font-black text-blue-600 uppercase tracking-tight mt-1">
+                        Solde KSM : {formatPrice(userWalletBalance)}
+                      </p>
+                    )}
                   </div>
-                  <Link href="/account">
+                  <Link href="/account/wallet" onClick={() => setShowUserMenu(false)}>
+                    <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
+                      <Wallet className="h-4 w-4 text-blue-600" />
+                      Mon Portefeuille
+                    </button>
+                  </Link>
+                  <Link href="/account" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
                       <User className="h-4 w-4" />
                       Mon Profil
@@ -268,7 +295,7 @@ export function GlobalNavbar({
                     <CreditCard className="h-4 w-4" />
                     Compte Bancaire
                   </button>
-                  <Link href="/orders">
+                  <Link href="/orders" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
                       <ShoppingBag className="h-4 w-4" />
                       Mes Commandes
