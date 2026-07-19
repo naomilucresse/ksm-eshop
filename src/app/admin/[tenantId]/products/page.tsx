@@ -32,7 +32,6 @@ export default function AdminProductsPage() {
     name: '',
     description: '',
     retailPrice: '',
-    wholesalePrice: '',
     categoryCode: '',
     imageUrl: '',
     quantity: '0',
@@ -98,7 +97,6 @@ export default function AdminProductsPage() {
         description: newProduct.description,
         unitPrice: parseFloat(newProduct.retailPrice) || 1,
         retailPrice: parseFloat(newProduct.retailPrice) || 1,
-        wholesalePrice: parseFloat(newProduct.wholesalePrice) || parseFloat(newProduct.retailPrice) || 1,
         photo: newProduct.imageUrl,
         imageUrl: newProduct.imageUrl,
         currency: 'FCFA',
@@ -120,7 +118,7 @@ export default function AdminProductsPage() {
       if (data.success || res.ok) {
         setIsAddingProduct(false);
         setNewProduct({
-          name: '', description: '', retailPrice: '', wholesalePrice: '', categoryCode: '',
+          name: '', description: '', retailPrice: '', categoryCode: '',
           imageUrl: '', quantity: '0', variantLabel: '', variantValues: '',
         });
         await fetchProducts();
@@ -147,7 +145,6 @@ export default function AdminProductsPage() {
       name: p.name,
       description: p.description || '',
       retailPrice: (p.unitPrice !== undefined ? p.unitPrice : (p.price || 0)).toString(),
-      wholesalePrice: ((p as any).wholesalePrice !== undefined ? (p as any).wholesalePrice : (p.unitPrice || p.price || 0)).toString(),
       categoryCode: p.categoryCode || p.familyCode || '',
       imageUrl: p.photo || p.imageUrl || p.image || p.picture || '',
       quantity: p.quantity !== undefined ? p.quantity : 0,
@@ -178,7 +175,6 @@ export default function AdminProductsPage() {
         description: editProduct.description,
         unitPrice: parseFloat(editProduct.retailPrice) || 1,
         retailPrice: parseFloat(editProduct.retailPrice) || 1,
-        wholesalePrice: parseFloat(editProduct.wholesalePrice) || parseFloat(editProduct.retailPrice) || 1,
         photo: editProduct.imageUrl,
         status: editProduct.status,
         currency: 'FCFA',
@@ -308,7 +304,7 @@ export default function AdminProductsPage() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Détail (CFA)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix (CFA)</label>
                 <input 
                   required
                   type="number"
@@ -316,18 +312,6 @@ export default function AdminProductsPage() {
                   placeholder="Ex: 15000"
                   value={newProduct.retailPrice}
                   onChange={(e) => setNewProduct({...newProduct, retailPrice: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Gros (CFA)</label>
-                <input 
-                  required
-                  type="number"
-                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
-                  placeholder="Ex: 12000"
-                  value={newProduct.wholesalePrice}
-                  onChange={(e) => setNewProduct({...newProduct, wholesalePrice: e.target.value})}
                 />
               </div>
 

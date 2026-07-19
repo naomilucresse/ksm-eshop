@@ -333,7 +333,7 @@ export default function SuperAdminPage() {
             <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 mb-6 pb-4 border-b border-zinc-100">
               Toutes les Organisations ({stats.totalOrganizations})
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {stats.organizations
                 .map((org: any) => {
                   const orgOrders = stats.orders.filter((o: any) => o._orgId === org.id);
@@ -348,37 +348,51 @@ export default function SuperAdminPage() {
                 .sort((a, b) => b.count - a.count)
                 .map(({ org, count, revenue }) => {
                   const isSuspended = suspendedOrgs[org.id] === true;
+                  
+                  // Déterminer un forfait stable de démo basé sur l'identifiant
+                  const planType = org.id.charCodeAt(0) % 3 === 0 
+                    ? { name: 'Plan Annuel', color: 'bg-amber-100 text-amber-800 border-amber-200' }
+                    : org.id.charCodeAt(0) % 3 === 1 
+                      ? { name: 'Plan Mensuel', color: 'bg-blue-100 text-blue-800 border-blue-200' }
+                      : { name: 'Free Plan', color: 'bg-zinc-100 text-zinc-800 border-zinc-200' };
+
+                  const totalRevenueAll = stats.orders.reduce((acc, o) => {
+                    let a = o.grossAmount || o.netAmount || o.totalAmount || o.total;
+                    if (!a && o.lines) a = o.lines.reduce((s: number, l: any) => s + ((l.unitPrice || 0) * (l.quantity || 0)), 0);
+                    if (!a && o.quantity) a = o.quantity * (o.unitPrice || 0);
+                    return acc + (a || 0);
+                  }, 0) || 1;
+
+                  const revenuePercentage = Math.round((revenue / totalRevenueAll) * 100);
+
                   return (
                     <div
                       key={org.id}
-                      className={`relative flex items-center justify-between p-4 rounded-2xl border-2 transition-colors ${
-                        count > 0 ? 'border-zinc-100 hover:border-blue-200 bg-zinc-50' : 'border-zinc-50 hover:border-zinc-200 bg-white opacity-60'
+                      className={`relative flex flex-col justify-between p-6 rounded-3xl border-2 transition-all duration-300 ${
+                        isSuspended 
+                          ? 'border-red-200 bg-red-50/40 opacity-75 shadow-sm' 
+                          : count > 0 
+                            ? 'border-zinc-100 hover:border-blue-300 hover:shadow-xl bg-white shadow-sm' 
+                            : 'border-zinc-50 hover:border-zinc-200 bg-white/70'
                       }`}
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0 ${
-                          count > 0 ? 'bg-blue-600' : 'bg-zinc-400'
-                        }`}>
-                          {(org.displayName || org.shortName || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-zinc-900 text-sm truncate">{org.displayName || org.shortName}</p>
-                          <p className="text-xs text-zinc-400 font-mono">
-                            {count} commande{count > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {count > 0 && (
-                          <div className="text-right">
-                            <p className="text-xs font-black text-amber-600">+{formatPrice(revenue * 0.05)}</p>
-                            <p className="text-[10px] text-zinc-400 font-bold">KSM (5%)</p>
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-md ${
+                            isSuspended 
+                              ? 'bg-red-500' 
+                              : count > 0 ? 'bg-blue-600' : 'bg-zinc-400'
+                          }`}>
+                            {(org.displayName || org.shortName || '?').charAt(0).toUpperCase()}
                           </div>
-                        )}
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-zinc-950 text-sm truncate leading-tight">{org.displayName || org.shortName}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono mt-0.5 truncate">{org.id.slice(0, 13)}...</p>
+                          </div>
+                        </div>
 
-                        {/* 3-dot menu */}
-                        <div className="relative">
+                        {/* Dropdown 3 dots */}
+                        <div className="relative flex-shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); setSuspendMenuOpen(suspendMenuOpen === org.id ? null : org.id); }}
                             className="h-8 w-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
@@ -425,6 +439,37 @@ export default function SuperAdminPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Subscription Info & Orders count */}
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${planType.color}`}>
+                          {planType.name}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+                          {count} commande{count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Revenue Progress & Market Share */}
+                      {count > 0 ? (
+                        <div className="space-y-2 border-t border-zinc-100 pt-4 mt-2">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            <span>Part de marché</span>
+                            <span className="text-blue-600 font-black">{revenuePercentage}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-600 rounded-full" style={{ width: `${Math.max(3, revenuePercentage)}%` }} />
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gain KSM (5%)</span>
+                            <span className="text-sm font-black text-amber-600">+{formatPrice(revenue * 0.05)} <span className="text-[10px] font-bold">CFA</span></span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-2 bg-zinc-50 rounded-xl border border-zinc-100 mt-2">
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Aucune vente enregistrée</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
