@@ -32,13 +32,22 @@ export async function GET(request: NextRequest) {
     // Charger les orgs suspendues
     const suspendedMap = getSuspendedOrgs();
 
-    const normalized = orgs.map((org: any) => ({
-      ...org,
-      // Résoudre le nom d'affichage depuis les champs du kernel
-      name: org.displayName || org.shortName || org.longName || org.legalName || org.code || org.id,
-      description: org.description || null,
-      _suspended: suspendedMap[org.id] === true,
-    }));
+    const normalized = orgs.map((org: any) => {
+      // Décoder le plan d'abonnement depuis les keywords (par défaut 'free')
+      let planId = 'free';
+      if (org.keywords && Array.isArray(org.keywords)) {
+        const foundPlan = org.keywords.find((k: string) => k.startsWith('plan_'));
+        if (foundPlan) planId = foundPlan.replace('plan_', '');
+      }
+
+      return {
+        ...org,
+        name: org.displayName || org.shortName || org.longName || org.legalName || org.code || org.id,
+        description: org.description || null,
+        _suspended: suspendedMap[org.id] === true,
+        subscriptionPlan: planId, // Propager le type d'abonnement
+      };
+    });
 
     // Pour les clients (pas d'admin), on filtre les orgs suspendues
     const filtered = includeAll ? normalized : normalized.filter((o: any) => !o._suspended);

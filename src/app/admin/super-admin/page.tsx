@@ -349,10 +349,11 @@ export default function SuperAdminPage() {
                 .map(({ org, count, revenue }) => {
                   const isSuspended = suspendedOrgs[org.id] === true;
                   
-                  // Déterminer un forfait stable de démo basé sur l'identifiant
-                  const planType = org.id.charCodeAt(0) % 3 === 0 
+                  // Utiliser le plan réel de l'organisation ('free', 'monthly', 'annual')
+                  const planId = org.subscriptionPlan || 'free';
+                  const planType = planId === 'annual' 
                     ? { name: 'Plan Annuel', color: 'bg-amber-100 text-amber-800 border-amber-200' }
-                    : org.id.charCodeAt(0) % 3 === 1 
+                    : planId === 'monthly'
                       ? { name: 'Plan Mensuel', color: 'bg-blue-100 text-blue-800 border-blue-200' }
                       : { name: 'Free Plan', color: 'bg-zinc-100 text-zinc-800 border-zinc-200' };
 
