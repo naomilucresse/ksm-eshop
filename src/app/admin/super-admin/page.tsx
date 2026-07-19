@@ -20,6 +20,7 @@ import {
   MoreVertical,
   Ban,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -154,26 +155,26 @@ export default function SuperAdminPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-12">
 
           <Card className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'organizations' ? 'border-blue-600 ring-4 ring-blue-600/20' : 'border-zinc-200 hover:border-blue-500'}`}
             onClick={() => setActiveTab('organizations')}>
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                <Building2 className="h-6 w-6" />
+              <div className="h-11 w-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-3">
+                <Building2 className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Total Orgs</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalOrganizations}</p>
+              <p className="text-3xl font-black text-zinc-900">{stats.totalOrganizations}</p>
             </CardContent>
           </Card>
 
           <Card className="border-2 shadow-xl rounded-3xl bg-white overflow-hidden border-zinc-200 col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
-                <Users className="h-6 w-6" />
+              <div className="h-11 w-11 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-3">
+                <Users className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Utilisateurs</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalUsers}</p>
+              <p className="text-3xl font-black text-zinc-900">{stats.totalUsers}</p>
             </CardContent>
           </Card>
 
@@ -181,25 +182,38 @@ export default function SuperAdminPage() {
             className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'transactions' ? 'border-purple-600 ring-4 ring-purple-600/20' : 'border-zinc-200 hover:border-purple-500'}`}
             onClick={() => setActiveTab('transactions')}>
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4">
-                <CreditCard className="h-6 w-6" />
+              <div className="h-11 w-11 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mb-3">
+                <CreditCard className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Transactions</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalTransactions}</p>
-              <div className="mt-3 text-[10px] font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full uppercase tracking-widest">
+              <p className="text-3xl font-black text-zinc-900">{stats.totalTransactions}</p>
+              <div className="mt-2 text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full uppercase tracking-widest">
                 Voir la liste
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-amber-500 shadow-xl shadow-amber-500/10 rounded-3xl bg-amber-50 overflow-hidden lg:scale-105 z-10 col-span-2 md:col-span-1">
+          <Card className="border-2 shadow-xl rounded-3xl bg-white overflow-hidden border-zinc-200 col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-amber-500 text-white rounded-full flex items-center justify-center mb-4 shadow-lg shadow-amber-500/30">
-                <TrendingUp className="h-6 w-6" />
+              <div className="h-11 w-11 bg-red-50 text-red-600 rounded-xl flex items-center justify-center mb-3">
+                <AlertTriangle className="h-5.5 w-5.5" />
+              </div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Incidents</h3>
+              <p className="text-3xl font-black text-zinc-900">0</p>
+              <div className="mt-2 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                Aucun incident
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-amber-500 shadow-xl shadow-amber-500/10 rounded-3xl bg-amber-50 overflow-hidden col-span-2 md:col-span-1">
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="h-11 w-11 bg-amber-500 text-white rounded-xl flex items-center justify-center mb-3 shadow-md shadow-amber-500/30">
+                <TrendingUp className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">Revenu KSM (5%)</h3>
-              <p className="text-3xl font-black text-amber-600">{formatPrice(stats.totalRevenue)}</p>
-              <p className="text-[10px] text-amber-500 font-bold mt-1">XAF</p>
+              <p className="text-2xl font-black text-amber-600">{formatPrice(stats.totalRevenue)}</p>
+              <p className="text-[9px] text-zinc-400 font-bold mt-1 uppercase">Sur GMV: {formatPrice(stats.totalRevenue * 20)}</p>
             </CardContent>
           </Card>
         </div>
