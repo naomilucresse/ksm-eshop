@@ -38,7 +38,7 @@ export async function getWalletByOwner(ownerId: string): Promise<Wallet | null> 
 /**
  * Crée un portefeuille pour un utilisateur
  */
-export async function createWallet(ownerId: string, currency: string = 'FCFA'): Promise<Wallet> {
+export async function createWallet(ownerId: string, currency: string = 'XAF'): Promise<Wallet> {
   const res = await fetch(`${getKernelBase()}/api/payments/wallets`, {
     method: 'POST',
     headers: {
@@ -123,11 +123,11 @@ export async function rechargeWallet(
     clientId?: string;
   } = {},
   callbackUrl?: string
-): Promise<{ redirectUrl?: string; orderId: string }> {
+): Promise<{ redirectUrl?: string; orderId: string; rawResponse?: any }> {
   const payload = {
     amount,
-    currency: params.currency || 'FCFA',
-    clientId: params.clientId || 'ksm-eshop-web',
+    currency: params.currency || 'XAF',
+    clientId: params.clientId || process.env.KERNEL_X_CLIENT_ID || 'prod-platform-backend',
     provider: params.provider || 'MYCOOLPAY',
     method: params.method || 'MOBILE_MONEY',
     payerReference: params.payerReference || '',
@@ -150,7 +150,33 @@ export async function rechargeWallet(
   }
 
   return {
-    redirectUrl: data.stripeCheckoutUrl || data.redirectUrl || data.checkoutUrl || data.paymentUrl,
-    orderId: data.orderId || data.id
+    redirectUrl: data.stripeCheckoutUrl || data.redirectUrl || data.checkoutUrl || data.paymentUrl || data.data?.stripeCheckoutUrl || data.data?.redirectUrl || data.data?.checkoutUrl || data.data?.paymentUrl || data.data?.paymentLink,
+    orderId: data.orderId || data.id || data.data?.orderId || data.data?.id,
+    rawResponse: data
   };
+}
+
+/**
+ * Récupère l'historique des transactions d'un portefeuille (walletId)
+ */
+export async function getWalletTransactions(walletId: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${getKernelBase()}/api/payments/wallets/${walletId}/transactions`, {
+      method: 'GET',
+      headers: getKernelBaseHeaders(),
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      throw new Error(`Erreur récupération transactions (${res.status})`);
+    }
+
+    const data = await res.json();
+    // Gérer l'ApiResponse enveloppée ou directe
+    const content = data.data?.content || data.data || data.content || data || [];
+    return Array.isArray(content) ? content : [];
+  } catch (error) {
+    console.error(`[Payments API] getWalletTransactions error for ${walletId}:`, error);
+    return [];
+  }
 }

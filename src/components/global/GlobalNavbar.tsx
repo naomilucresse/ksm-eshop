@@ -9,6 +9,8 @@ import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import BankAccountModal from '../shop/BankAccountModal';
 import { formatPrice } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
+import LanguageSelector from './LanguageSelector';
 
 interface Organization {
   id: string;
@@ -34,6 +36,7 @@ export function GlobalNavbar({
   const { isAuthenticated, user, logout } = useCustomerAuthStore();
   const cartItemCount = useCartStore(state => state.items.length);
   const [searchQuery, setSearchQuery] = useState('');
+  const t = useTranslations('Navbar');
   const [lang, setLang] = useState<'FR' | 'EN'>('FR');
   const [isClient, setIsClient] = useState(false);
   
@@ -72,12 +75,11 @@ export function GlobalNavbar({
   const handleLogout = async () => {
     await fetch('/api/auth/customer-logout', { method: 'POST' });
     logout();
-    useCartStore.getState().clearCart();
     router.push(`/login`);
   };
 
   const finalCategories = [
-    { id: 'all', label: 'Toutes catégories' },
+    { id: 'all', label: t('allCategories') },
     ...categories
   ];
 
@@ -105,7 +107,7 @@ export function GlobalNavbar({
                 <Menu className="h-4 w-4" />
               </div>
               <span className="text-sm font-black text-zinc-900 uppercase italic tracking-tighter group-hover:text-blue-600 transition-colors hidden xl:block">
-                Boutiques Partenaires
+                {t('partnerShops')}
               </span>
               <ChevronDown className="h-4 w-4 text-zinc-400 group-hover:text-blue-600" />
             </button>
@@ -211,7 +213,7 @@ export function GlobalNavbar({
             </select>
             <input 
               type="text" 
-              placeholder={lang === 'FR' ? "Rechercher un produit..." : "Search product..."}
+              placeholder={t('home') === 'Accueil' ? "Rechercher un produit..." : "Search product..."}
               className="flex-1 px-4 py-2 text-zinc-900 outline-none text-sm font-bold bg-transparent"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -225,33 +227,7 @@ export function GlobalNavbar({
         {/* Right Side: Lang, Auth, Cart */}
         <div className="flex items-center gap-3">
           {/* Language Selector */}
-          <div className="relative hidden sm:block">
-            <button 
-              onClick={() => { setShowLangMenu(!showLangMenu); setShowUserMenu(false); setShowOrgMenu(false); }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-50 hover:bg-zinc-100 rounded-full border-2 border-transparent hover:border-zinc-200 transition-colors font-black text-xs text-zinc-700"
-            >
-              <Globe className="h-4 w-4" />
-              <span>{lang}</span>
-              <ChevronDown className="h-3 w-3" />
-            </button>
-            
-            {showLangMenu && (
-              <div className="absolute top-full right-0 mt-2 w-32 bg-white text-zinc-900 shadow-2xl rounded-2xl border-2 border-zinc-900 z-50 overflow-hidden animate-in slide-in-from-top-2">
-                <button 
-                  onClick={() => { setLang('FR'); setShowLangMenu(false); }} 
-                  className={`w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-zinc-50 transition-colors border-b border-zinc-100 ${lang === 'FR' ? 'text-blue-600' : 'text-zinc-700 hover:text-zinc-900'}`}
-                >
-                  Français
-                </button>
-                <button 
-                  onClick={() => { setLang('EN'); setShowLangMenu(false); }} 
-                  className={`w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider hover:bg-zinc-50 transition-colors ${lang === 'EN' ? 'text-blue-600' : 'text-zinc-700 hover:text-zinc-900'}`}
-                >
-                  English
-                </button>
-              </div>
-            )}
-          </div>
+          <LanguageSelector />
 
           {/* User Menu */}
           {isClient && isAuthenticated ? (
@@ -279,7 +255,7 @@ export function GlobalNavbar({
                   <Link href="/account/wallet" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
                       <Wallet className="h-4 w-4 text-blue-600" />
-                      Mon Portefeuille
+                      {t('myWallet')}
                     </button>
                   </Link>
                   <Link href="/account" onClick={() => setShowUserMenu(false)}>
@@ -298,7 +274,7 @@ export function GlobalNavbar({
                   <Link href="/orders" onClick={() => setShowUserMenu(false)}>
                     <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
                       <ShoppingBag className="h-4 w-4" />
-                      Mes Commandes
+                      {t('myOrders')}
                     </button>
                   </Link>
                   <div className="h-[2px] bg-zinc-100 my-2" />
@@ -307,7 +283,7 @@ export function GlobalNavbar({
                     className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
                   >
                     <LogOut className="h-4 w-4" />
-                    Se déconnecter
+                    {t('logout')}
                   </button>
                 </div>
               )}
@@ -316,12 +292,12 @@ export function GlobalNavbar({
             <div className="hidden sm:flex items-center gap-2">
               <Link href="/login">
                 <Button variant="ghost" className="font-black text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 border-2 border-transparent text-xs uppercase tracking-wider rounded-full">
-                  {lang === 'FR' ? 'Connexion' : 'Sign in'}
+                  {t('login')}
                 </Button>
               </Link>
               <Link href="/signup">
                 <Button className="font-black bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg text-xs uppercase tracking-wider rounded-full">
-                  {lang === 'FR' ? "S'inscrire" : 'Sign up'}
+                  {t('register')}
                 </Button>
               </Link>
             </div>
@@ -367,7 +343,7 @@ export function GlobalNavbar({
           <div className="flex w-full rounded-full overflow-hidden border-2 border-zinc-200 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-100 transition-all bg-white">
             <input 
               type="text" 
-              placeholder={lang === 'FR' ? "Rechercher..." : "Search..."}
+              placeholder={t('home') === 'Accueil' ? "Rechercher..." : "Search..."}
               className="flex-1 px-4 py-2 text-zinc-900 outline-none text-sm font-bold bg-transparent"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

@@ -6,12 +6,17 @@ import { getWalletByOwner, createWallet, rechargeWallet } from '@/lib/payments-a
  * Récupère l'ID du client actuellement connecté via les cookies de session.
  */
 function getCustomerId(cookieStore: any): string | null {
-  const customerSession = cookieStore.get('customerSession')?.value;
-  if (!customerSession) return null;
+  const customerToken = cookieStore.get('customerToken')?.value;
+  if (!customerToken) return null;
   try {
-    const data = JSON.parse(customerSession);
-    return data.id || data.partyId || null;
-  } catch {
+    const parts = customerToken.split('.');
+    if (parts.length !== 3) return null;
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decodedJson = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+    const payload = JSON.parse(decodedJson);
+    return payload.sub || payload.actor || null;
+  } catch (e) {
+    console.error('[getCustomerId] Erreur décodage JWT:', e);
     return null;
   }
 }
@@ -68,6 +73,7 @@ export async function POST(request: NextRequest) {
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
     const callbackUrl = `${protocol}://${host}/account/wallet?recharge=success`;
 
+    const resolvedCurrency = (wallet.currency === 'FCFA' || !wallet.currency) ? 'XAF' : wallet.currency;
     const rechargeResult = await rechargeWallet(
       wallet.id,
       amount,
@@ -75,13 +81,17 @@ export async function POST(request: NextRequest) {
         provider: provider || 'MYCOOLPAY',
         method: method || 'MOBILE_MONEY',
         payerReference: payerReference || '',
-        currency: wallet.currency || 'FCFA'
+        currency: resolvedCurrency
       },
       callbackUrl
     );
 
     if (!rechargeResult.redirectUrl) {
-      throw new Error("Le Kernel Core n'a retourné aucun lien de redirection pour le paiement.");
+      return Response.json({
+        success: false,
+        message: "Le Kernel Core n'a retourné aucun lien de redirection pour le paiement.",
+        debugKernelResponse: (rechargeResult as any).rawResponse || null
+      }, { status: 400 });
     }
 
     return Response.json({ 

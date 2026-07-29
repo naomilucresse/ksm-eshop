@@ -21,15 +21,27 @@ import {
   Ban,
   CheckCircle2,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/logout', { method: 'POST' });
+    logout();
+    router.push('/admin/login');
+  };
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'transactions' | 'users' | 'organizations'>('organizations');
   const [search, setSearch] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [suspendedOrgs, setSuspendedOrgs] = useState<Record<string, boolean>>({});
   const [suspendMenuOpen, setSuspendMenuOpen] = useState<string | null>(null); // orgId open
 
@@ -45,16 +57,22 @@ export default function SuperAdminPage() {
   });
 
   useEffect(() => {
+    if (!isMounted) return;
+
     if (!isAuthenticated) {
       router.push('/admin/login');
       return;
     }
     
-    if (
-      user?.email?.toLowerCase().trim() !== 'atenaornella@gmail.com' &&
-      user?.name?.toLowerCase().trim() !== 'atenaornella@gmail.com'
-    ) {
-      router.push('/admin/organizations');
+    if (user) {
+      const email = user.email?.toLowerCase().trim();
+      const username = user.username?.toLowerCase().trim();
+      if (email !== 'testk965@yowyob.com' && username !== 'testk965@yowyob.com') {
+        router.push('/admin/organizations');
+        return;
+      }
+    } else {
+      // Attendre que l'utilisateur soit chargé avant de rediriger
       return;
     }
 
@@ -93,7 +111,7 @@ export default function SuperAdminPage() {
     };
 
     fetchStats();
-  }, [isAuthenticated, router]);
+  }, [isMounted, isAuthenticated, user, router]);
 
   const filteredOrders = stats.orders.filter((o) => {
     if (!search) return true;
@@ -137,11 +155,9 @@ export default function SuperAdminPage() {
               <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none">Accès Restreint</p>
             </div>
           </div>
-          <Link href="/admin/organizations">
-            <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800 font-bold text-xs uppercase tracking-widest">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux orgs
-            </Button>
-          </Link>
+          <Button onClick={handleLogout} variant="ghost" className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800 font-bold text-xs uppercase tracking-widest">
+            <LogOut className="h-4 w-4 mr-2" /> Déconnexion
+          </Button>
         </div>
       </header>
 
@@ -213,7 +229,7 @@ export default function SuperAdminPage() {
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">Revenu KSM (5%)</h3>
               <p className="text-2xl font-black text-amber-600">{formatPrice(stats.totalRevenue)}</p>
-              <p className="text-[9px] text-zinc-400 font-bold mt-1 uppercase">Sur GMV: {formatPrice(stats.totalRevenue * 20)}</p>
+              <p className="text-[9px] text-zinc-400 font-bold mt-1 uppercase">Sur Volume d'Affaires Brut : {formatPrice(stats.totalRevenue * 20)}</p>
             </CardContent>
           </Card>
         </div>
