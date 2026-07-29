@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // 1. Détecter la locale (cookie ou accept-language)
   let locale = request.cookies.get('NEXT_LOCALE')?.value;
 
