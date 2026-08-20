@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
 
-  const result = await backendFetch('/api/inventory/transfers', {
+  const result = await backendFetch('/api/stock/transfers', {
     method: 'GET',
     params: {
       organizationId,
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       body.organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'o1';
     }
 
-    const result = await backendFetch('/api/inventory/transfers', {
+    const result = await backendFetch('/api/stock/transfers', {
       method: 'POST',
       body: JSON.stringify(body),
     });
