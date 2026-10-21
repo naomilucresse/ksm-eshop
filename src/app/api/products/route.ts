@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { creerProduit, listerProduits } from '@/lib/kernel-catalog';
 import { getLocalReservedQuantities } from '@/lib/local-db';
 import { isOrgSuspended } from '@/lib/suspended-orgs';
 
@@ -152,13 +153,7 @@ export async function GET(request: NextRequest) {
     // Fetch products for each organization
     const productPromises = orgs.map(async (org) => {
       try {
-        const prodRes = await backendFetch('/api/product-core/catalog', {
-          method: 'GET',
-          params: { organizationId: org.id, familyCode, status },
-          headers: {
-            'X-Organization-Id': org.id
-          }
-        });
+        const prodRes = await listerProduits(org.id, { familyCode, status }, { 'X-Organization-Id': org.id });
         
         console.log(`[DEBUG] prodRes for ${org.id}:`, JSON.stringify(prodRes).substring(0, 200));
 
@@ -211,14 +206,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const result = await backendFetch('/api/product-core/catalog', {
-    method: 'GET',
-    params: {
-      organizationId,
-      familyCode,
-      status: 'ACTIVE', // Forcer le statut ACTIVE lors de la requête au backend
-    },
-  });
+  // Forcer le statut ACTIVE : la vitrine ne montre que ce qui est en vente.
+  const result = await listerProduits(organizationId, { familyCode, status: 'ACTIVE' });
 
   if (!result.success) {
     const reserved = getLocalReservedQuantities(organizationId);
@@ -288,12 +277,9 @@ export async function POST(request: NextRequest) {
       body.organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'o1';
     }
 
-    // Écriture (création) : reste sur le modèle B (product.*) — A n'expose que la lecture
-    // catalogue. La projection B->A côté kernel peuple product_core en fire-and-forget.
-    const result = await backendFetch('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    // Le modèle B (product.*) et sa projection ont disparu du noyau : la mise en vente passe par
+    // l'API produit, qui crée la définition et l'offre de l'organisation en un appel.
+    const result = await creerProduit(body);
 
     return Response.json(result);
   } catch (error: any) {

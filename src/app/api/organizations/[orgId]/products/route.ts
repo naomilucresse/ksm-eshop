@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { backendFetch } from '@/lib/api-client';
+import { listerProduits } from '@/lib/kernel-catalog';
 import { isOrgSuspended } from '@/lib/suspended-orgs';
 
 /**
@@ -26,11 +26,9 @@ export async function GET(
   const page = searchParams.get('page') || undefined;
   const size = searchParams.get('size') || undefined;
 
-  const result = await backendFetch('/api/product-core/catalog', {
-    method: 'GET',
-    params: { organizationId: orgId, status, familyCode, page, size },
-    headers: { 'X-Organization-Id': orgId }
-  });
+  // Le noyau rend la liste entière : page et size ne s'appliquent plus.
+  void page; void size;
+  const result = await listerProduits(orgId, { status, familyCode }, { 'X-Organization-Id': orgId });
 
   const mockProducts = [
     {
