@@ -208,8 +208,7 @@ export async function GET(request: NextRequest) {
               'X-Organization-Id': orgId
             });
             if (pRes.success && pRes.data) {
-              const list = Array.isArray(pRes.data) ? pRes.data : (pRes.data.content || pRes.data.data || []);
-              list.forEach((p: any) => {
+              pRes.data.forEach((p: any) => {
                 if (p.id) productsMap[p.id] = p.name;
               });
             }
