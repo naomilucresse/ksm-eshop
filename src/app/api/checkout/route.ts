@@ -295,6 +295,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Si paiement par mobile money : la caisse commune du noyau encaisse un client SANS compte.
+    //
+    // C'est le seul chemin où l'argent arrive réellement au portefeuille du vendeur sans que
+    // l'acheteur ait un compte Yowyob. Le noyau recalcule le montant à partir des lignes envoyées
+    // ici, côté serveur : le total affiché chez le prestataire est le SIEN, pas celui du panier du
+    // navigateur.
+    if (body.paymentMethod === 'MOBILE_MONEY') {
+      const organisations = Object.keys(groupedItems);
+      // Un achat du noyau désigne UN vendeur, et l'argent va à SON portefeuille. Un panier qui
+      // mélange deux boutiques ne peut donc pas être réglé en une fois : encaisser le tout au
+      // profit d'une seule serait un détournement, pas une simplification.
+      if (organisations.length > 1) {
+        return Response.json({
+          success: false,
+          message: 'Le paiement par mobile money règle une boutique à la fois. '
+            + 'Décochez les articles des autres boutiques, puis recommencez.'
+        }, { status: 400 });
+      }
+
+      try {
+        const { ouvrirMobileMoney, ligneDepuisPanier } = await import('@/lib/checkout-session');
+        const lignes = (items as any[]).map(ligneDepuisPanier).filter(l => l.unitAmount > 0);
+        if (lignes.length === 0) {
+          return Response.json({
+            success: false,
+            message: "Aucun article n'a de prix de vente : impossible d'ouvrir un paiement."
+          }, { status: 400 });
+        }
+
+        const ouvert = await ouvrirMobileMoney({
+          merchantOrganizationId: mainTenantId,
+          items: lignes,
+          // La référence relie l'argent à la commande ET rend la création idempotente : un second
+          // clic rouvre le MÊME achat au lieu d'en créer un que le client pourrait aussi régler.
+          reference: orderIds || null,
+          returnUrl: `${baseUrl}/checkout/success?orderIds=${encodeURIComponent(orderIds)}`,
+          phone: typeof body.payerPhone === 'string' ? body.payerPhone : null,
+        });
+
+        return Response.json({
+          success: true,
+          paymentUrl: ouvert.paymentUrl,
+          checkoutSessionId: ouvert.sessionId,
+          amount: ouvert.amount,
+          currency: ouvert.currency,
+          data: ordersCreated
+        });
+      } catch (mobileMoneyError: any) {
+        console.error('[CHECKOUT MOBILE MONEY ERROR]', mobileMoneyError);
+        // Pas de repli silencieux vers une simulation : un client doit savoir que rien n'a été
+        // encaissé, plutôt que de repartir avec une page de succès et sans marchandise.
+        return Response.json({
+          success: false,
+          message: mobileMoneyError?.message || "Le paiement mobile money n'a pas pu être ouvert."
+        }, { status: 502 });
+      }
+    }
+
     const paymentPayload = {
       amount: grandTotal,
       method: 'STRIPE',
