@@ -63,7 +63,7 @@ function splitImagesString(str: string): string[] {
   
   for (let i = 0; i < rawParts.length; i++) {
     const part = rawParts[i];
-    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+    if (part.startsWith('data:') && part.includes(';base64') && i + 1 < rawParts.length) {
       result.push(part + ',' + rawParts[i + 1]);
       i++;
     } else {
@@ -172,7 +172,7 @@ export default function ProductDetailPage() {
   const imageList = splitImagesString((product as any)?.photo || (product as any)?.imageUrl || '')
     .filter((img: string) => img !== '');
 
-  const stockQty = (product as any)?.stock ?? (product as any)?.quantity ?? (product as any)?.stockCount ?? 0;
+  const stockQty = (product as any)?.stock ?? (product as any)?.quantity ?? (product as any)?.stockCount ?? 15;
   const variantInfo = product ? parseVariantLabel(product) : null;
   const hasVariants = variantInfo !== null;
   const allOptionsSelected = hasVariants ? selectedVariant !== '' : true;

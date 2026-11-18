@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { backendFetch } from '@/lib/api-client';
 import { getLocalReservedQuantities } from '@/lib/local-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || undefined;
@@ -16,11 +18,12 @@ export async function GET(request: NextRequest) {
     return Response.json({ success: false, message: 'Non autorisé.' }, { status: 401 });
   }
 
-  const result = await backendFetch('/api/products', {
+  const result = await backendFetch('/api/product-core/products', {
     method: 'GET',
     params: { organizationId, page, size },
     headers: { 
-      'Authorization': `Bearer ${adminToken}`
+      'Authorization': `Bearer ${adminToken}`,
+      ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
     }
   });
 
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const organizationId = body.organizationId;
     
-    const result = await backendFetch('/api/products', {
+    const result = await backendFetch('/api/product-core/products', {
       method: 'POST',
       body: JSON.stringify(body),
       headers: { 

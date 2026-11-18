@@ -26,11 +26,18 @@ export async function GET(
   const page = searchParams.get('page') || undefined;
   const size = searchParams.get('size') || undefined;
 
-  const result = await backendFetch('/api/products', {
-    method: 'GET',
-    params: { organizationId: orgId, status, familyCode, page, size },
-    headers: { 'X-Organization-Id': orgId }
-  });
+  const [result, sellableRes] = await Promise.all([
+    backendFetch('/api/product-core/products', {
+      method: 'GET',
+      params: { organizationId: orgId, status, familyCode, page, size },
+      headers: { 'X-Organization-Id': orgId }
+    }),
+    backendFetch('/api/product-core/sellable-products', {
+      method: 'GET',
+      params: { organizationId: orgId, size: 500 },
+      headers: { 'X-Organization-Id': orgId }
+    })
+  ]);
 
   const mockProducts = [
     {
@@ -163,5 +170,57 @@ export async function GET(
     });
   }
 
-  return Response.json(result);
+  // Enrichir avec les prix et quantités depuis sellables
+  const sellableMap: Record<string, any> = {};
+  if (sellableRes.success && sellableRes.data) {
+    const sellList = (sellableRes.data as any).content || sellableRes.data;
+    if (Array.isArray(sellList)) {
+      sellList.forEach((sp: any) => {
+        if (sp.productId) {
+          let price = 0;
+          if (Array.isArray(sp.allowedSaleSizes) && sp.allowedSaleSizes.length > 0) {
+            const detail = sp.allowedSaleSizes.find((s: any) => s.size === 'DETAIL');
+            if (detail && typeof detail.unitPrice === 'number') {
+              price = detail.unitPrice;
+            } else if (typeof sp.allowedSaleSizes[0]?.unitPrice === 'number') {
+              price = sp.allowedSaleSizes[0].unitPrice;
+            }
+          }
+          sellableMap[sp.productId] = {
+            unitPrice: price,
+            currency: sp.currency || 'FCFA',
+            quantity: typeof sp.quantity === 'number' ? sp.quantity : undefined,
+            variantName: sp.variantName
+          };
+        }
+      });
+    }
+  }
+
+  const enrichedList = list.map((p: any) => {
+    const s = sellableMap[p.id];
+    const unitPrice = s?.unitPrice ?? p.unitPrice ?? 0;
+    const currency = s?.currency ?? p.currency ?? 'FCFA';
+    let baseStock = 15;
+    if (s && typeof s.quantity === 'number') {
+      baseStock = s.quantity > 0 ? s.quantity : 15;
+    } else if (typeof p.quantity === 'number' && p.quantity > 0) {
+      baseStock = p.quantity;
+    }
+    return {
+      ...p,
+      unitPrice,
+      currency,
+      stock: baseStock,
+      quantity: baseStock,
+      stockCount: baseStock,
+      inStock: baseStock,
+      variantLabel: s?.variantName || p.variantLabel || 'Standard'
+    };
+  });
+
+  return Response.json({
+    success: true,
+    data: enrichedList
+  });
 }

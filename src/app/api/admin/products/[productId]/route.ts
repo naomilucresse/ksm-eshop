@@ -23,7 +23,7 @@ async function updateProduct(request: NextRequest, { params }: { params: Promise
     let sku = body.sku;
     if (!sku) {
       try {
-        const getRes = await fetch(`${getKernelBase()}/api/products/${productId}`, {
+        const getRes = await fetch(`${getKernelBase()}/api/product-core/products/${productId}`, {
           headers: {
             ...getKernelBaseHeaders(),
             'Authorization': `Bearer ${adminToken}`,
@@ -64,7 +64,7 @@ async function updateProduct(request: NextRequest, { params }: { params: Promise
     };
 
     // Essayer PATCH (standard REST), fallback PUT si 405
-    let backendRes = await fetch(`${BACKEND}/api/products/${productId}`, {
+    let backendRes = await fetch(`${BACKEND}/api/product-core/products/${productId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify(payload),
@@ -72,7 +72,7 @@ async function updateProduct(request: NextRequest, { params }: { params: Promise
     });
 
     if (backendRes.status === 405) {
-      backendRes = await fetch(`${BACKEND}/api/products/${productId}`, {
+      backendRes = await fetch(`${BACKEND}/api/product-core/products/${productId}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(payload),
@@ -118,7 +118,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const searchParams = request.nextUrl.searchParams;
     const organizationId = searchParams.get('organizationId') || undefined;
 
-    const backendRes = await fetch(`${getKernelBase()}/api/products/${productId}`, {
+    const backendRes = await fetch(`${getKernelBase()}/api/product-core/products/${productId}`, {
       method: 'DELETE',
       headers: {
         ...getKernelBaseHeaders(),

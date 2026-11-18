@@ -13,27 +13,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Lire BACKEND_URL au moment de la requête (pas au chargement du module)
-    const res = await fetch(`${getKernelBase()}/api/auth/login`, {
-      method: 'POST',
-      headers: getKernelBaseHeaders(),
-      body: JSON.stringify({ principal, password }),
-      cache: 'no-store',
-    });
+    // Résolution intelligente du principal (ex: kkl921@yowyob.com -> kkl921)
+    let resolvedPrincipal = (principal || '').trim();
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const allUsersPath = path.join(process.cwd(), 'all_users.json');
+      if (fs.existsSync(allUsersPath)) {
+        const allUsers = JSON.parse(fs.readFileSync(allUsersPath, 'utf8') || '[]');
+        const found = allUsers.find((u: any) =>
+          (u.email && u.email.toLowerCase() === resolvedPrincipal.toLowerCase()) ||
+          (u.phoneNumber && u.phoneNumber.toLowerCase() === resolvedPrincipal.toLowerCase()) ||
+          (u.username && u.username.toLowerCase() === resolvedPrincipal.toLowerCase())
+        );
+        if (found?.username) {
+          resolvedPrincipal = found.username;
+        }
+      }
+    } catch (e) {}
 
-    const data = await res.json();
+    if (resolvedPrincipal.toLowerCase().endsWith('@yowyob.com')) {
+      resolvedPrincipal = resolvedPrincipal.replace(/@yowyob\.com$/i, '');
+    }
+
+    const executeLogin = async (p: string) => {
+      return fetch(`${getKernelBase()}/api/auth/login`, {
+        method: 'POST',
+        headers: getKernelBaseHeaders(),
+        body: JSON.stringify({ principal: p, password }),
+        cache: 'no-store',
+      });
+    };
+
+    let res = await executeLogin(resolvedPrincipal);
+    let data = await res.json();
+
+    if (!res.ok && principal.includes('@')) {
+      const fallbackPrefix = principal.split('@')[0];
+      if (fallbackPrefix && fallbackPrefix !== resolvedPrincipal) {
+        const fallbackRes = await executeLogin(fallbackPrefix);
+        if (fallbackRes.ok) {
+          res = fallbackRes;
+          data = await fallbackRes.json();
+        }
+      }
+    }
 
     // Détecter si le Kernel indique qu'un code MFA / OTP est requis pour cette session.
-    // Typiquement le Kernel retourne success: true ou success: false avec un code d'erreur MFA_REQUIRED
-    // ou data.mfaRequired = true
-    const mfaRequired = data?.data?.mfaRequired || data?.mfaRequired || data?.errorCode === 'MFA_REQUIRED' || data?.message?.includes('MFA') || data?.message?.includes('OTP') || (data?.data && !data?.data?.accessToken && data?.data?.sessionId);
+    const isMfa =
+      data?.data?.nextStep === 'CONFIRM_MFA' ||
+      data?.nextStep === 'CONFIRM_MFA' ||
+      !!data?.data?.mfaToken ||
+      !!data?.mfaToken ||
+      data?.data?.mfaRequired ||
+      data?.mfaRequired ||
+      data?.errorCode === 'MFA_REQUIRED' ||
+      data?.message?.includes('MFA') ||
+      data?.message?.includes('OTP') ||
+      (data?.data && !data?.data?.accessToken && (data?.data?.sessionId || data?.data?.mfaToken));
 
-    if (mfaRequired) {
+    if (isMfa) {
+      const challengeToken = data?.data?.mfaToken || data?.mfaToken || data?.data?.sessionId || data?.sessionId || null;
       return Response.json({
         success: true,
         requiresMfa: true,
-        sessionId: data?.data?.sessionId || data?.sessionId || null,
-        message: 'Un code de vérification (OTP) est requis pour ce compte.'
+        nextStep: 'CONFIRM_MFA',
+        sessionId: challengeToken,
+        mfaToken: challengeToken,
+        message: data?.message || 'Un code de vérification (OTP) est requis pour ce compte.'
       });
     }
 

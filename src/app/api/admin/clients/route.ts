@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { backendFetch } from '@/lib/api-client';
 import { getLocalClients, saveLocalClient } from '@/lib/local-db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || undefined;
@@ -20,7 +22,8 @@ export async function GET(request: NextRequest) {
     method: 'GET',
     params: { organizationId, page, size },
     headers: { 
-      'Authorization': `Bearer ${adminToken}`
+      'Authorization': `Bearer ${adminToken}`,
+      ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
     }
   });
 

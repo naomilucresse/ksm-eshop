@@ -7,7 +7,7 @@ type Context = {
 
 export async function GET(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}/variants`, {
+  const result = await backendFetch(`/api/product-core/products/${productId}/variants`, {
     method: 'GET',
   });
   return Response.json(result);
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: Context) {
   const { productId } = await params;
   try {
     const body = await request.json();
-    const result = await backendFetch(`/api/products/${productId}/variants`, {
+    const result = await backendFetch(`/api/product-core/products/${productId}/variants`, {
       method: 'POST',
       body: JSON.stringify(body),
     });

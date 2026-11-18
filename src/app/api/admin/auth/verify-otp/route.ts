@@ -13,16 +13,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Le endpoint du Kernel pour valider l'OTP
-    // On passe le principal (l'email), le code saisi par l'utilisateur et le sessionId obtenu à la première étape
-    const res = await fetch(`${getKernelBase()}/api/auth/verify-mfa`, {
+    // Endpoint officiel Kernel : POST /api/auth/login/mfa/confirm
+    let res = await fetch(`${getKernelBase()}/api/auth/login/mfa/confirm`, {
       method: 'POST',
-      headers: getKernelBaseHeaders(),
-      body: JSON.stringify({ principal, code, sessionId }),
+      headers: {
+        ...getKernelBaseHeaders(),
+      },
+      body: JSON.stringify({ mfaToken: sessionId, code }),
       cache: 'no-store'
     });
 
-    const data = await res.json();
+    let data = await res.json().catch(() => ({}));
+
+    // Si 404 ou non supporté, tenter /api/auth/verify-mfa
+    if (!res.ok && res.status === 404) {
+      const fallbackRes = await fetch(`${getKernelBase()}/api/auth/verify-mfa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Accept':        '*/*',
+          'Authorization': `Bearer ${sessionId}`,
+        },
+        body: JSON.stringify({ principal, code, sessionId }),
+        cache: 'no-store'
+      });
+      if (fallbackRes.ok) {
+        res = fallbackRes;
+        data = await fallbackRes.json().catch(() => ({}));
+      }
+    }
 
     if (!res.ok || !data.success) {
       return Response.json(

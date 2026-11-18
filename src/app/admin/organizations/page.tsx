@@ -53,7 +53,7 @@ export default function OrganizationsPage() {
     try {
       const res = await fetch('/api/organizations/my');
       if (res.status === 401) {
-        router.push('/login');
+        router.push('/admin/login');
         return;
       }
       const data = await res.json();

@@ -165,11 +165,13 @@ export const getLocalUsers = (): any[] => {
 export const saveLocalUser = (user: any): boolean => {
   try {
     const users = getLocalUsers();
-    // Check for duplicates
-    if (!users.find(u => u.email === user.email)) {
-      users.push({ ...user, registeredAt: new Date().toISOString() });
-      fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    const existingIndex = users.findIndex(u => (u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()) || (user.username && u.username === user.username));
+    if (existingIndex >= 0) {
+      users[existingIndex] = { ...users[existingIndex], ...user };
+    } else {
+      users.push({ ...user, registeredAt: user.registeredAt || new Date().toISOString() });
     }
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
     return true;
   } catch (error) {
     return false;

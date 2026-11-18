@@ -39,18 +39,30 @@ export async function POST(request: Request) {
     if (!authRes.ok) {
       const errData = await authRes.text();
       console.error('[Register] Erreur de création Kernel:', authRes.status, errData);
-      return Response.json({ success: false, message: 'Erreur lors de la création du compte' }, { status: 400 });
+      let message = 'Erreur lors de la création du compte';
+      try {
+        const errObj = JSON.parse(errData);
+        if (errObj.message) {
+          if (errObj.message.toLowerCase().includes('password must contain') || errObj.message.toLowerCase().includes('password')) {
+            message = 'Le mot de passe doit comporter au moins 10 caractères et contenir des majuscules, des minuscules, au moins un chiffre et un symbole spécial (ex: MonPass123@!).';
+          } else {
+            message = errObj.message;
+          }
+        }
+      } catch {}
+      return Response.json({ success: false, message }, { status: 400 });
     }
 
-    const authData = await authRes.json();
+    const authData = await authRes.json().catch(() => ({}));
     
     // Save to local DB to count registrations via our page
     const { saveLocalUser } = require('@/lib/local-db');
-    saveLocalUser({ name, email, organizationId });
+    saveLocalUser({ name, email, username: signUpPayload.username, organizationId });
 
     return NextResponse.json({
       success: true,
-      message: 'Compte créé avec succès. Vérifiez votre e-mail.',
+      message: `Compte créé avec succès ! Votre identifiant de connexion est : ${signUpPayload.username}`,
+      username: signUpPayload.username,
       emailVerificationRequired: true
     }, { status: 200 });
   } catch (error: any) {

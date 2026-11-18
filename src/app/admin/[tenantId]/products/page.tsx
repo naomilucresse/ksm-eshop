@@ -24,7 +24,7 @@ function splitImagesString(str: string): string[] {
   
   for (let i = 0; i < rawParts.length; i++) {
     const part = rawParts[i];
-    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+    if (part.startsWith('data:') && part.includes(';base64') && i + 1 < rawParts.length) {
       result.push(part + ',' + rawParts[i + 1]);
       i++;
     } else {
@@ -55,7 +55,7 @@ function ImageGalleryManager({ imagesString, onChange, colorTheme = 'blue' }: Im
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const max_size = 400;
+          const max_size = 300;
           let width = img.width;
           let height = img.height;
 
@@ -76,7 +76,7 @@ function ImageGalleryManager({ imagesString, onChange, colorTheme = 'blue' }: Im
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.4);
             const updated = [...images, compressedBase64].join(',');
             onChange(updated);
           } else {

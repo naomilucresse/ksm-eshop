@@ -48,6 +48,71 @@ export function GlobalNavbar({
   const [orgSearch, setOrgSearch] = useState('');
   const ORGS_PER_PAGE = 8;
   const [userWalletBalance, setUserWalletBalance] = useState<number | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      console.warn("La géolocalisation n'est pas supportée par ce navigateur.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        let detectedCity = '';
+        
+        // 1. Tenter l'API BigDataCloud (rapide et sans restriction sur localhost)
+        try {
+          const response = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=fr`
+          );
+          const data = await response.json();
+          detectedCity = data.city || data.locality || data.principalSubdivision || data.countryName || '';
+        } catch (err) {
+          console.warn("Erreur BigDataCloud, tentative Nominatim:", err);
+        }
+
+        // 2. Tenter Nominatim en cas d'échec
+        if (!detectedCity) {
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=fr`
+            );
+            const data = await response.json();
+            detectedCity = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.address?.country || '';
+          } catch (err) {
+            console.error("Erreur Nominatim:", err);
+          }
+        }
+
+        // 3. Appliquer la ville détectée ou un texte de confirmation par défaut
+        const finalLocation = detectedCity || 'Position Active';
+        setLocation(finalLocation);
+        localStorage.setItem('ksm-user-location', finalLocation);
+        setLocating(false);
+      },
+      async (error) => {
+        console.warn("Erreur de géolocalisation GPS, utilisation de l'IP:", error.message);
+        try {
+          const response = await fetch('https://ip-api.com/json/');
+          const data = await response.json();
+          if (data.city) {
+            setLocation(data.city);
+            localStorage.setItem('ksm-user-location', data.city);
+          } else {
+            setLocation('Cameroun');
+          }
+        } catch (ipErr) {
+          console.error("Erreur de géolocalisation IP:", ipErr);
+          setLocation('Cameroun');
+        } finally {
+          setLocating(false);
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -64,6 +129,17 @@ export function GlobalNavbar({
     }
     if (isAuthenticated) {
       fetchWalletBalance();
+    }
+
+    // Localisation
+    const savedLoc = localStorage.getItem('ksm-user-location');
+    if (savedLoc) {
+      setLocation(savedLoc);
+    } else {
+      const timer = setTimeout(() => {
+        detectLocation();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated]);
 
@@ -226,6 +302,22 @@ export function GlobalNavbar({
 
         {/* Right Side: Lang, Auth, Cart */}
         <div className="flex items-center gap-3">
+          {/* Geolocation Badge */}
+          {isClient && (
+            <button 
+              onClick={detectLocation}
+              disabled={locating}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 hover:border-zinc-300 rounded-full text-xs font-bold text-zinc-700 transition-all shadow-sm active:scale-95 disabled:opacity-75 disabled:pointer-events-none cursor-pointer"
+              title="Cliquer pour actualiser votre position"
+            >
+              <span className="relative flex h-2 w-2 mr-0.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${locating ? 'bg-blue-400' : 'bg-emerald-400'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${locating ? 'bg-blue-500' : 'bg-emerald-500'}`}></span>
+              </span>
+              <span>📍 {locating ? 'Détection...' : (location || 'Localiser')}</span>
+            </button>
+          )}
+
           {/* Language Selector */}
           <LanguageSelector />
 

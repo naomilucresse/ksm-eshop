@@ -39,7 +39,9 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   
   let price = product.price || 0;
-  let stock = product.stock || 0;
+  let stock = (product.stock !== undefined && product.stock !== null) 
+    ? product.stock 
+    : ((product.quantity !== undefined && product.quantity !== null) ? product.quantity : 15);
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {

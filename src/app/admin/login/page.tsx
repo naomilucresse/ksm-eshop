@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
         setSessionId(data.sessionId);
         setLoading(false);
       } else {
-        login(email);
+        login({ email, name: email });
         const targetRoute = email.toLowerCase().trim() === 'testk965@yowyob.com' ? '/admin/super-admin' : '/admin/organizations';
         router.push(targetRoute);
       }
@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
         setError(data.message || 'Code de vérification incorrect ou expiré.');
         setLoading(false);
       } else {
-        login(email);
+        login({ email, name: email });
         const targetRoute = email.toLowerCase().trim() === 'testk965@yowyob.com' ? '/admin/super-admin' : '/admin/organizations';
         router.push(targetRoute);
       }

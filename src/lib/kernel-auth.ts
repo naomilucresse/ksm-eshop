@@ -14,8 +14,10 @@ interface TokenCache {
   expiresAt: number;
 }
 
-let tokenCache: TokenCache | null = null;
-let isRefreshing = false; // verrou pour éviter les appels parallèles
+const globalForAuth = globalThis as unknown as {
+  __kernel_token_cache?: TokenCache | null;
+  __kernel_token_promise?: Promise<string> | null;
+};
 
 // Lire l'URL au moment de la requête (pas au chargement du module) pour éviter les valeurs obsolètes après hot-reload
 export const getKernelBase = () => process.env.BACKEND_URL || 'https://kernel-core.yowyob.com';
@@ -84,7 +86,7 @@ async function loginToKernel(): Promise<string> {
     ? Date.now() + expiresIn * 1000
     : Date.now() + DEFAULT_EXPIRY_MS;
 
-  tokenCache = { token, expiresAt };
+  globalForAuth.__kernel_token_cache = { token, expiresAt };
   console.log(`[KernelAuth] ✅ Token obtenu. Expire dans ${Math.round((expiresAt - Date.now()) / 1000 / 60)} min.`);
 
   return token;
@@ -92,40 +94,30 @@ async function loginToKernel(): Promise<string> {
 
 /**
  * Retourne un accessToken valide pour le kernel.
- * Renouvellement automatique et transparent.
- *
- * Ordre de priorité :
- *  1. KERNEL_STATIC_TOKEN (env) — si défini manuellement pour tests
- *  2. Cache mémoire encore valide (marge 60s)
- *  3. Nouveau login automatique (sans OTP)
+ * Renouvellement automatique et transparent avec verrou global.
  */
 export async function getKernelToken(): Promise<string> {
   // 1. Token statique manuel (pour tests ou override)
   if (STATIC_TOKEN) return STATIC_TOKEN;
 
   const now = Date.now();
+  const cached = globalForAuth.__kernel_token_cache;
 
   // 2. Cache valide (marge de 60 secondes avant expiration)
-  if (tokenCache && tokenCache.expiresAt > now + 60_000) {
-    return tokenCache.token;
+  if (cached && cached.expiresAt > now + 60_000) {
+    return cached.token;
   }
 
-  // 3. Renouvellement automatique
-  // Verrou pour éviter plusieurs logins simultanés
-  if (isRefreshing) {
-    // Attendre que le refresh en cours se termine
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) {
-      return tokenCache.token;
-    }
+  // 3. Verrou par Promise pour dédupliquer les appels parallèles
+  if (globalForAuth.__kernel_token_promise) {
+    return globalForAuth.__kernel_token_promise;
   }
 
-  isRefreshing = true;
-  try {
-    return await loginToKernel();
-  } finally {
-    isRefreshing = false;
-  }
+  globalForAuth.__kernel_token_promise = loginToKernel().finally(() => {
+    globalForAuth.__kernel_token_promise = null;
+  });
+
+  return globalForAuth.__kernel_token_promise;
 }
 
 /**

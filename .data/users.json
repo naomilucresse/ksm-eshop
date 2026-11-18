@@ -2,17 +2,20 @@
   {
     "name": "jhyyy74",
     "email": "primeafrica67@gmail.com",
-    "registeredAt": "2026-07-12T16:34:02.798Z"
+    "registeredAt": "2026-07-12T16:34:02.798Z",
+    "username": "jhyyy74"
   },
   {
     "name": "ornella.mb",
-    "email": "atenaornella@gmail.com",
-    "registeredAt": "2026-07-12T18:57:17.614Z"
+    "email": "ornella.mb@yowyob.com",
+    "registeredAt": "2026-07-12T18:57:17.614Z",
+    "username": "ornella.mb"
   },
   {
     "name": "makji",
     "email": "netflixafrica21@gmail.com",
-    "registeredAt": "2026-07-12T19:38:41.571Z"
+    "registeredAt": "2026-07-12T19:38:41.571Z",
+    "username": "makji540"
   },
   {
     "name": "ornella atena",
@@ -20,31 +23,61 @@
     "registeredAt": "2026-07-14T06:43:58.477Z",
     "firstName": "ornella",
     "lastName": "atena",
-    "phoneNumber": ""
+    "phoneNumber": "",
+    "username": "ornellaatena"
   },
   {
     "name": "kkl921",
     "email": "kkl921@yowyob.com",
-    "registeredAt": "2026-07-23T07:43:53.763Z"
+    "registeredAt": "2026-07-23T07:43:53.763Z",
+    "username": "kkl921"
   },
   {
     "name": "test",
     "email": "mm33997143@gmail.com",
-    "registeredAt": "2026-07-24T08:35:41.557Z"
+    "registeredAt": "2026-07-24T08:35:41.557Z",
+    "username": "test947"
   },
   {
     "name": "testt",
     "email": "netflixcameroun44@yahoo.com",
-    "registeredAt": "2026-07-24T08:48:20.557Z"
+    "registeredAt": "2026-07-24T08:48:20.557Z",
+    "username": "testt820"
   },
   {
     "name": "testk",
     "email": "netflixafrica763@gmail.com",
-    "registeredAt": "2026-07-24T08:51:55.211Z"
+    "registeredAt": "2026-07-24T08:51:55.211Z",
+    "username": "testk965"
   },
   {
     "name": "testk965",
     "email": "testk965@yowyob.com",
-    "registeredAt": "2026-07-24T08:53:49.272Z"
+    "registeredAt": "2026-07-24T08:53:49.272Z",
+    "username": "testk965"
+  },
+  {
+    "name": "maso21",
+    "email": "maso21@yowyob.com",
+    "registeredAt": "2026-07-30T09:13:49.042Z",
+    "username": "maso21"
+  },
+  {
+    "name": "maso21",
+    "email": "maso21@yowyob.com",
+    "registeredAt": "2026-07-30T09:16:52.219Z",
+    "username": "maso21"
+  },
+  {
+    "name": "pending-13c845ad9d3b01e92592f6ba",
+    "email": "pending-13c845ad9d3b01e92592f6ba@yowyob.com",
+    "registeredAt": "2026-07-30T16:59:12.226Z",
+    "username": "pending-13c845ad9d3b01e92592f6ba"
+  },
+  {
+    "name": "gtrd16",
+    "email": "gtrd16@yowyob.com",
+    "username": "gtrd16",
+    "registeredAt": "2026-11-15T12:01:30.972Z"
   }
 ]

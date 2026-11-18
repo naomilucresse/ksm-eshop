@@ -11,6 +11,29 @@ import { GlobalNavbar } from '@/components/global/GlobalNavbar';
 import { useCartStore } from '@/store/useCartStore';
 import { useTranslations } from 'next-intl';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
+import { SiteFooter } from '@/components/marketing/site-footer';
+
+function getFirstImage(photoStr: string): string {
+  if (!photoStr) return '';
+  const trimmed = photoStr.trim();
+  if (trimmed.startsWith('data:')) {
+    const nextImageIndex = trimmed.indexOf(',data:', 5);
+    const nextHttpIndex = trimmed.indexOf(',http', 5);
+    let limit = -1;
+    if (nextImageIndex !== -1 && nextHttpIndex !== -1) {
+      limit = Math.min(nextImageIndex, nextHttpIndex);
+    } else if (nextImageIndex !== -1) {
+      limit = nextImageIndex;
+    } else if (nextHttpIndex !== -1) {
+      limit = nextHttpIndex;
+    }
+    if (limit !== -1) {
+      return trimmed.slice(0, limit).trim();
+    }
+    return trimmed;
+  }
+  return trimmed.split(',')[0].trim();
+}
 
 export default function GlobalMarketplacePage() {
   const router = useRouter();
@@ -23,6 +46,8 @@ export default function GlobalMarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'NONE' | 'LOW_TO_HIGH' | 'HIGH_TO_LOW'>('NONE');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   const { addItem } = useCartStore();
   const t = useTranslations('Marketplace');
@@ -52,36 +77,59 @@ export default function GlobalMarketplacePage() {
     setLoading(true);
     setError(null);
     try {
-      const [orgsRes, prodsRes] = await Promise.all([
-        fetch('/api/organizations'),
-        fetch('/api/products?organizationId=ALL')
-      ]);
-
-      if (!orgsRes.ok) {
-        throw new Error(`Erreur organisations ${orgsRes.status}: ${orgsRes.statusText}`);
-      }
+      // Phase 1 : chargement rapide sans images (~2-3s)
+      const prodsRes = await fetch('/api/products?organizationId=ALL&noMedia=true');
       if (!prodsRes.ok) {
         throw new Error(`Erreur produits ${prodsRes.status}: ${prodsRes.statusText}`);
       }
-
-      const orgsData = await parseJsonResponse(orgsRes);
       const prodsData = await parseJsonResponse(prodsRes);
-
-      const orgsPayload = orgsData?.success ? orgsData.data ?? orgsData : orgsData;
-      setOrganizations(normalizeEntities(orgsPayload));
-
       const prodsPayload = prodsData?.success ? prodsData.data ?? prodsData : prodsData;
       const productList = normalizeEntities(prodsPayload);
+
       if (productList.length > 0) {
-        productList.sort(() => Math.random() - 0.5);
+        productList.sort((a: any, b: any) => {
+          const priceA = a.unitPrice || 0;
+          const priceB = b.unitPrice || 0;
+          if (priceA > 0 && priceB === 0) return -1;
+          if (priceB > 0 && priceA === 0) return 1;
+          return Math.random() - 0.5;
+        });
         setProducts(productList);
+        setLoading(false);
+
+        // Phase 2 : enrichissement avec les images en arrière-plan
+        fetch('/api/products?organizationId=ALL')
+          .then(r => r.json())
+          .then(fullData => {
+            const fullPayload = fullData?.success ? fullData.data ?? fullData : fullData;
+            const fullList = normalizeEntities(fullPayload);
+            if (fullList.length > 0) {
+              // Conserver l'ordre actuel, juste mettre à jour les photos
+              setProducts(prev => {
+                const photoMap: Record<string, string> = {};
+                fullList.forEach((p: any) => { if (p.id && p.photo) photoMap[p.id] = p.photo; });
+                return prev.map(p => photoMap[(p as any).id] ? { ...p, photo: photoMap[(p as any).id] } : p);
+              });
+            }
+          })
+          .catch(() => { /* ignore erreur images */ });
       } else {
         setError('Aucun produit disponible pour le moment, ou réponse serveur vide.');
+        setLoading(false);
       }
+
+      // Charger les organisations en parallèle pour la navbar (non-bloquant)
+      fetch('/api/organizations')
+        .then(r => r.json())
+        .then(orgsData => {
+          const orgsPayload = orgsData?.success ? orgsData.data ?? orgsData : orgsData;
+          setOrganizations(normalizeEntities(orgsPayload));
+        })
+        .catch(() => { /* ignore */ });
+
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message || 'Erreur de connexion avec le serveur.');
-    } finally {
       setLoading(false);
     }
   };
@@ -89,6 +137,11 @@ export default function GlobalMarketplacePage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Réinitialiser la page si on change de filtre
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, sortOrder]);
 
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
@@ -195,127 +248,117 @@ export default function GlobalMarketplacePage() {
         )}
 
         {!loading && !error && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredAndSortedProducts.map(product => (
-              <Card key={product.id} className="group hover:shadow-xl transition-shadow border border-zinc-200 rounded-lg overflow-hidden flex flex-col bg-white">
-                <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block relative aspect-square bg-white p-4">
-                  {product.photo ? (
-                    <img 
-                      src={product.photo} 
-                      alt={product.name}
-                      className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-zinc-100 flex items-center justify-center rounded">
-                      <span className="text-zinc-400 text-xs">{t('noImg')}</span>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {filteredAndSortedProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(product => (
+                <Card key={product.id} className="group hover:shadow-xl transition-shadow border border-zinc-200 rounded-lg overflow-hidden flex flex-col bg-white">
+                  <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block relative aspect-square bg-white p-4">
+                    {product.photo ? (
+                      <img 
+                        src={getFirstImage(product.photo)} 
+                        alt={product.name}
+                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-zinc-100 flex items-center justify-center rounded">
+                        <span className="text-zinc-400 text-xs">{t('noImg')}</span>
+                      </div>
+                    )}
+                    {/* Badge boutique */}
+                    <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider">
+                      {(product as any).tenantName || 'Boutique KSM'}
                     </div>
-                  )}
-                  {/* Badge boutique */}
-                  <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider">
-                    {(product as any).tenantName || 'Boutique KSM'}
-                  </div>
-                </Link>
-                
-                <CardContent className="p-4 flex flex-col flex-1">
-                  <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block mb-2">
-                    <h3 className="font-bold text-zinc-900 line-clamp-2 leading-tight group-hover:text-amber-600 transition-colors text-sm">
-                      {product.name}
-                    </h3>
                   </Link>
-                  <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{product.description}</p>
                   
-                  <div className="mt-auto">
-                    <div className="text-xl font-black text-zinc-900 mb-1">
-                      {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-600">{product.currency || 'FCFA'}</span>
+                  <CardContent className="p-4 flex flex-col flex-1">
+                    <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block mb-2">
+                      <h3 className="font-bold text-zinc-900 line-clamp-2 leading-tight group-hover:text-amber-600 transition-colors text-sm">
+                        {product.name}
+                      </h3>
+                    </Link>
+                    <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{product.description}</p>
+                    
+                    <div className="mt-auto">
+                      <div className="text-xl font-black text-zinc-900 mb-1">
+                        {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-600">{product.currency || 'FCFA'}</span>
+                      </div>
+                      
+                      {(() => {
+                        const stockQty = product.stock ?? product.quantity ?? product.stockCount ?? 15;
+                        const inStock = stockQty > 0;
+                        return (
+                          <div className={`text-xs font-bold mb-3 inline-block px-2 py-1 rounded-full border ${inStock ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
+                            {inStock ? t('inStock', { qty: stockQty }) : t('outOfStock')}
+                          </div>
+                        );
+                      })()}
+                      
+                      <Button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (!useCustomerAuthStore.getState().isAuthenticated) {
+                            const currentPath = window.location.pathname;
+                            router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+                            return;
+                          }
+                          addItem({
+                            productId: product.id,
+                            name: product.name,
+                            price: product.unitPrice || 0,
+                            imageUrl: getFirstImage(product.photo || ''),
+                            tenantId: product.organizationId
+                          });
+                        }}
+                        disabled={(product.stock ?? product.quantity ?? product.stockCount ?? 15) === 0}
+                        className={`w-full font-bold border-none shadow-sm rounded-full text-sm h-9 ${
+                          (product.stock ?? product.quantity ?? product.stockCount ?? 15) === 0 
+                            ? 'bg-red-100 text-red-500 cursor-not-allowed' 
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        {(product.stock ?? product.quantity ?? product.stockCount ?? 15) > 0 ? t('addToCart') : t('outOfStock')}
+                      </Button>
                     </div>
-                    
-                    {(() => {
-                      const stockQty = product.stock ?? product.quantity ?? product.stockCount ?? 0;
-                      const inStock = stockQty > 0;
-                      return (
-                        <div className={`text-xs font-bold mb-3 inline-block px-2 py-1 rounded-full border ${inStock ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
-                          {inStock ? t('inStock', { qty: stockQty }) : t('outOfStock')}
-                        </div>
-                      );
-                    })()}
-                    
-                    <Button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (!useCustomerAuthStore.getState().isAuthenticated) {
-                          const currentPath = window.location.pathname;
-                          router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
-                          return;
-                        }
-                        addItem({
-                          productId: product.id,
-                          name: product.name,
-                          price: product.unitPrice || 0,
-                          imageUrl: product.photo || '',
-                          tenantId: product.organizationId
-                        });
-                      }}
-                      disabled={(product.stock ?? product.quantity ?? product.stockCount ?? 0) === 0}
-                      className={`w-full font-bold border-none shadow-sm rounded-full text-sm h-9 ${
-                        (product.stock ?? product.quantity ?? product.stockCount ?? 0) === 0 
-                          ? 'bg-red-100 text-red-500 cursor-not-allowed' 
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      {(product.stock ?? product.quantity ?? product.stockCount ?? 0) > 0 ? t('addToCart') : t('outOfStock')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
 
-            {filteredAndSortedProducts.length === 0 && (
-              <div className="col-span-full text-center py-20">
-                <p className="text-zinc-500 font-bold text-lg">{t('noMatch')}</p>
+              {filteredAndSortedProducts.length === 0 && (
+                <div className="col-span-full text-center py-20">
+                  <p className="text-zinc-500 font-bold text-lg">{t('noMatch')}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Pagination Controls */}
+            {filteredAndSortedProducts.length > pageSize && (
+              <div className="flex justify-center items-center gap-4 mt-8 w-full">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                  disabled={currentPage === 1}
+                  className="border-zinc-300 font-bold"
+                >
+                  Précédent
+                </Button>
+                <span className="text-sm font-bold text-zinc-600">
+                  Page {currentPage} sur {Math.ceil(filteredAndSortedProducts.length / pageSize)}
+                </span>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredAndSortedProducts.length / pageSize), p + 1))} 
+                  disabled={currentPage >= Math.ceil(filteredAndSortedProducts.length / pageSize)}
+                  className="border-zinc-300 font-bold"
+                >
+                  Suivant
+                </Button>
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
 
-      {/* Footer Pro - Client side */}
-      <footer className="py-16 bg-zinc-900 text-zinc-400 border-t-2 border-zinc-950 mt-auto">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">K</span>
-                </div>
-                <span className="text-lg font-black tracking-tight text-white uppercase italic">KSM eShop</span>
-              </div>
-              <p className="text-xs font-bold leading-relaxed max-w-sm">
-                {t('footerDesc')}
-              </p>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">{t('links')}</h3>
-              <ul className="space-y-2 text-xs font-bold uppercase">
-                <li><Link href="#features" className="hover:text-white transition-colors">{t('features')}</Link></li>
-                <li><Link href="#tenants" className="hover:text-white transition-colors">{t('explore')}</Link></li>
-                <li><Link href="/admin/organizations" className="hover:text-white transition-colors">{t('manager')}</Link></li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">{t('info')}</h3>
-              <p className="text-xs font-bold">{t('city')}</p>
-              <p className="text-xs font-bold text-zinc-500">{t('tech')}</p>
-            </div>
-          </div>
-          <div className="border-t border-zinc-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">&copy; {new Date().getFullYear()} KSM Core System. {t('copyright')}</p>
-            <div className="flex items-center gap-2 text-zinc-600">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">{t('security')}</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

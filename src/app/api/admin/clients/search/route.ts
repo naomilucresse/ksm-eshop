@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       roles: 'CUSTOMER'
     },
     headers: { 
-      'Authorization': `Bearer ${adminToken}`
+      'Authorization': `Bearer ${adminToken}`,
+      ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
     }
   });
 

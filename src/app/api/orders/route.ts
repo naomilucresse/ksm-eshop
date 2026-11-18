@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
       await Promise.allSettled(
         orgIds.map(async (orgId) => {
           try {
-            const pRes = await backendFetch(`/api/products?organizationId=${orgId}&size=1000`, {
+            const pRes = await backendFetch(`/api/product-core/products?organizationId=${orgId}&size=1000`, {
               method: 'GET',
               headers: {
                 Authorization: `Bearer ${adminToken}`,

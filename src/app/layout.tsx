@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
+import { CookieBanner } from '@/components/global/CookieBanner';
 
 export default async function RootLayout({
  children,
@@ -36,6 +37,7 @@ export default async function RootLayout({
  <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-950">
    <NextIntlClientProvider messages={messages}>
      {children}
+     <CookieBanner />
    </NextIntlClientProvider>
  </body>
  </html>

@@ -79,13 +79,13 @@ export async function POST(request: NextRequest) {
           
           if (pId) {
             // Fetch current product
-            const pRes = await backendFetch(`/api/products/${pId}`, { method: 'GET', headers });
+            const pRes = await backendFetch(`/api/product-core/products/${pId}`, { method: 'GET', headers });
             if (pRes.success && pRes.data) {
               const currentQ = pRes.data.quantity || 0;
               const newQ = Math.max(0, currentQ - line.quantity);
               
               // Update product quantity
-              await backendFetch(`/api/products/${pId}`, {
+              await backendFetch(`/api/product-core/products/${pId}`, {
                 method: 'PATCH',
                 headers,
                 body: JSON.stringify({ quantity: newQ })

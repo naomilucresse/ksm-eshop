@@ -33,11 +33,12 @@ export default function SignupPage() {
       const data = await res.json();
       
       if (data.success || res.ok) {
-        // Rediriger vers login après succès
+        // Rediriger vers login après succès en transmettant l'identifiant créé
+        const usernameParam = data.username ? `&username=${encodeURIComponent(data.username)}` : '';
         if (data.emailVerificationRequired) {
-          router.push(`/login?registered=true&verify=true`);
+          router.push(`/login?registered=true&verify=true${usernameParam}`);
         } else {
-          router.push(`/login?registered=true`);
+          router.push(`/login?registered=true${usernameParam}`);
         }
       } else {
         setError(data.message || t('errorMsg'));
@@ -116,6 +117,9 @@ export default function SignupPage() {
                 className="appearance-none relative block w-full px-4 py-3 border-2 border-zinc-200 placeholder-zinc-400 text-zinc-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent font-medium transition-all"
                 placeholder={t('passwordPlaceholder')}
               />
+              <p className="text-xs text-zinc-500 mt-1.5 font-medium">
+                Au moins 10 caractères avec majuscule, minuscule, chiffre et symbole spécial (ex: MonPass123@!).
+              </p>
             </div>
           </div>
 

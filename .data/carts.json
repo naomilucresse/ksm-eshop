@@ -1,0 +1,30 @@
+{
+  "2bd67665-d081-40e9-b0dd-391cad655f38": [
+    {
+      "id": "867ff85a-8c4d-45d1-8aa4-90f33c1de09f",
+      "variantId": "867ff85a-8c4d-45d1-8aa4-90f33c1de09f",
+      "productId": "867ff85a-8c4d-45d1-8aa4-90f33c1de09f",
+      "name": "MacBook Pro 16 M3 Max",
+      "price": 10,
+      "basePrice": 10,
+      "imageUrl": "",
+      "quantity": 1,
+      "tenantId": "a6d70676-33d2-4776-b3f3-fab54cad7ba3",
+      "selectedForPurchase": true
+    }
+  ],
+  "123072cc-d85c-4381-92cc-1306e2f1b076": [
+    {
+      "id": "fe338a02-388a-460f-8342-faa2366b47b5",
+      "variantId": "fe338a02-388a-460f-8342-faa2366b47b5",
+      "productId": "fe338a02-388a-460f-8342-faa2366b47b5",
+      "name": "Smart TV Samsung Neo QLED 65\"",
+      "price": 1200000,
+      "basePrice": 1200000,
+      "imageUrl": "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=800",
+      "quantity": 1,
+      "tenantId": "d9d6a900-a3a6-4572-8349-415ad008b976",
+      "selectedForPurchase": true
+    }
+  ]
+}

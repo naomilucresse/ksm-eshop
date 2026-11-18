@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         const pId = item.productId;
         if (pId) {
           try {
-            const pRes = await backendFetch(`/api/products/${pId}`, {
+            const pRes = await backendFetch(`/api/product-core/products/${pId}`, {
               method: 'GET',
               headers: tHeadersAuth
             });
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
                 currency: product.currency || 'FCFA'
               };
 
-              const updateRes = await backendFetch(`/api/products/${pId}`, {
+              const updateRes = await backendFetch(`/api/product-core/products/${pId}`, {
                 method: 'PATCH',
                 headers: tHeadersAuth,
                 body: JSON.stringify(payload)

@@ -7,7 +7,7 @@ type Context = {
 
 export async function GET(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}`, {
+  const result = await backendFetch(`/api/product-core/products/${productId}`, {
     method: 'GET',
   });
   return Response.json(result);
@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest, { params }: Context) {
   const { productId } = await params;
   try {
     const body = await request.json();
-    const result = await backendFetch(`/api/products/${productId}`, {
+    const result = await backendFetch(`/api/product-core/products/${productId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: Context) {
 
 export async function DELETE(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}`, {
+  const result = await backendFetch(`/api/product-core/products/${productId}`, {
     method: 'DELETE',
   });
   return Response.json(result);

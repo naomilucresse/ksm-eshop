@@ -15,7 +15,9 @@ function getCustomerId(cookieStore: any): string | null {
     const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const decodedJson = Buffer.from(payloadBase64, 'base64').toString('utf-8');
     const payload = JSON.parse(decodedJson);
-    return payload.sub || payload.actor || null;
+    
+    // Préférer l'UUID unique (userId, actor, id) à l'adresse e-mail (souvent dans sub)
+    return payload.userId || payload.actor || payload.id || payload.partyId || payload.sub || null;
   } catch (e) {
     console.error('[getCustomerId] Erreur décodage JWT:', e);
     return null;

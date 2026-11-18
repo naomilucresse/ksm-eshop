@@ -16,7 +16,7 @@ function splitImagesString(str: string): string[] {
   
   for (let i = 0; i < rawParts.length; i++) {
     const part = rawParts[i];
-    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+    if (part.startsWith('data:') && part.includes(';base64') && i + 1 < rawParts.length) {
       result.push(part + ',' + rawParts[i + 1]);
       i++;
     } else {
@@ -83,7 +83,7 @@ export default function ShopHomePage() {
             isFeatured: true, // tout afficher par défaut en vedette
             imageUrl: splitImagesString(kp.photo || kp.imageUrl || '')[0] || '',
             price: kp.unitPrice || 0,
-            stock: kp.quantity || 0,
+            stock: (kp as any).stock ?? kp.quantity ?? 15,
             variantLabel: (kp as any).variantLabel || 'Standard'
           }));
 
