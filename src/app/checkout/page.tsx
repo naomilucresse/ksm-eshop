@@ -62,7 +62,9 @@ export default function CheckoutPage() {
   }, [user]);
 
   const [wallet, setWallet] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'WALLET'>('WALLET');
+  const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'WALLET' | 'MOBILE_MONEY'>('WALLET');
+  /** Facultatif : pré-remplit le numéro chez le prestataire, qui le redemande de toute façon. */
+  const [payerPhone, setPayerPhone] = useState('');
   const [isRecharging, setIsRecharging] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -96,7 +98,8 @@ export default function CheckoutPage() {
       items: activeItems,
       customerName: displayName,
       customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000',
-      paymentMethod: paymentMethod
+      paymentMethod: paymentMethod,
+      payerPhone: paymentMethod === 'MOBILE_MONEY' ? payerPhone.trim() : undefined
     };
 
     try {
@@ -107,7 +110,23 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       
-      if (data.success && data.stripeCheckoutUrl) {
+      if (data.success && data.paymentUrl) {
+         // L'identifiant de l'achat est confié au navigateur AVANT de partir : l'adresse de retour
+         // est fixée à la création de l'achat, donc elle ne peut pas le contenir, et la page de
+         // retour n'a aucun autre moyen de savoir quel paiement constater.
+         try {
+           sessionStorage.setItem('ksm_mobile_money_checkout', JSON.stringify({
+             sessionId: data.checkoutSessionId,
+             orderIds: data.data?.map((o: any) => o.orderNumber).join(',') || ''
+           }));
+         } catch {
+           // Navigation privée ou stockage refusé : la page de retour le dira au lieu d'annoncer
+           // un succès qu'elle n'a pas vérifié.
+         }
+         // On quitte le site pour la page du prestataire. Le panier reste intact : tant que le
+         // paiement n'est pas constaté, le client doit pouvoir revenir et réessayer.
+         window.location.href = data.paymentUrl;
+      } else if (data.success && data.stripeCheckoutUrl) {
          if (data.stripeCheckoutUrl.startsWith('http')) {
            window.location.href = data.stripeCheckoutUrl;
          } else {
@@ -323,6 +342,51 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+
+              {/* Option Mobile Money — le seul chemin pour un client SANS compte Yowyob :
+                  l'argent part de son téléphone et arrive au portefeuille du vendeur. */}
+              <div
+                onClick={() => setPaymentMethod('MOBILE_MONEY')}
+                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  paymentMethod === 'MOBILE_MONEY' ? 'border-blue-600 bg-blue-50/20 shadow-md' : 'border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
+                <div className="w-full">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === 'MOBILE_MONEY'}
+                      onChange={() => setPaymentMethod('MOBILE_MONEY')}
+                      className="h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500"
+                    />
+                    <p className="text-lg font-black text-zinc-900 uppercase tracking-tighter italic">Mobile Money</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-500 mt-1 pl-6">
+                    Payez depuis votre téléphone. Aucun compte ni solde n&apos;est nécessaire.
+                  </p>
+                  {paymentMethod === 'MOBILE_MONEY' && (
+                    <div className="mt-4 pl-6 space-y-2">
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={payerPhone}
+                        onChange={(e) => setPayerPhone(e.target.value)}
+                        placeholder="699000000 (facultatif)"
+                        aria-label="Numéro de téléphone pour le paiement (facultatif)"
+                        className="w-full rounded-lg border-2 border-zinc-300 bg-white p-3 text-sm font-bold text-zinc-900 focus:border-blue-500 focus:outline-none"
+                      />
+                      <p className="text-[11px] font-bold text-zinc-500">
+                        Vous serez redirigé vers la page de paiement, où vous validerez depuis votre
+                        téléphone. Votre panier reste intact tant que le paiement n&apos;est pas confirmé.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="h-10 px-4 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-200 flex-shrink-0 self-start sm:self-center">
+                  <span className="text-white font-black text-sm italic uppercase">MTN · Orange</span>
+                </div>
+              </div>
 
               {/* Option Carte / Stripe direct */}
               <div 

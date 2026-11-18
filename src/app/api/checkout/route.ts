@@ -190,50 +190,9 @@ export async function POST(request: NextRequest) {
         saveLocalOrder(orderPayload);
       }
 
-      // Réduire la quantité (stock) des produits après commande
-      for (const item of itemsList) {
-        const pId = item.productId;
-        if (pId) {
-          try {
-            const pRes = await backendFetch(`/api/product-core/products/${pId}`, {
-              method: 'GET',
-              headers: tHeadersAuth
-            });
-            if (pRes.success && pRes.data) {
-              const product = pRes.data;
-              const currentQ = product.quantity || 0;
-              const newQ = Math.max(0, currentQ - (item.quantity || 1));
-              
-              // Inclure tous les champs requis et existants pour la mise à jour sur le Kernel
-              const payload = {
-                organizationId: tenantId,
-                sku: product.sku || `SKU-${pId.slice(0, 8)}`,
-                name: product.name,
-                variantLabel: product.variantLabel || 'Standard',
-                unitPrice: product.unitPrice || 1,
-                quantity: newQ,
-                status: product.status || 'ACTIVE',
-                familyCode: product.familyCode || 'STANDARD',
-                currency: product.currency || 'FCFA'
-              };
-
-              const updateRes = await backendFetch(`/api/product-core/products/${pId}`, {
-                method: 'PATCH',
-                headers: tHeadersAuth,
-                body: JSON.stringify(payload)
-              });
-
-              if (updateRes.success) {
-                console.log(`[CHECKOUT] Stock réduit avec succès pour ${pId}: ${currentQ} -> ${newQ}`);
-              } else {
-                console.error(`[CHECKOUT] Échec de réduction de stock pour ${pId}:`, updateRes.message);
-              }
-            }
-          } catch (e) {
-            console.error(`[CHECKOUT] Exception lors de la réduction de stock pour ${pId}:`, e);
-          }
-        }
-      }
+      // Le stock n'est plus décrémenté ici en réécrivant la quantité du produit : ce champ
+      // n'existe plus (la route /api/products a disparu du noyau), et le stock vit dans le
+      // grand-livre. C'est la confirmation de la commande par le noyau qui sort la marchandise.
 
       ordersCreated.push(orderPayload);
     }
@@ -333,6 +292,64 @@ export async function POST(request: NextRequest) {
       } catch (walletError: any) {
         console.error('[CHECKOUT WALLET ERROR]', walletError);
         return Response.json({ success: false, message: walletError.message || 'Erreur lors du virement de portefeuille.' }, { status: 400 });
+      }
+    }
+
+    // Si paiement par mobile money : la caisse commune du noyau encaisse un client SANS compte.
+    //
+    // C'est le seul chemin où l'argent arrive réellement au portefeuille du vendeur sans que
+    // l'acheteur ait un compte Yowyob. Le noyau recalcule le montant à partir des lignes envoyées
+    // ici, côté serveur : le total affiché chez le prestataire est le SIEN, pas celui du panier du
+    // navigateur.
+    if (body.paymentMethod === 'MOBILE_MONEY') {
+      const organisations = Object.keys(groupedItems);
+      // Un achat du noyau désigne UN vendeur, et l'argent va à SON portefeuille. Un panier qui
+      // mélange deux boutiques ne peut donc pas être réglé en une fois : encaisser le tout au
+      // profit d'une seule serait un détournement, pas une simplification.
+      if (organisations.length > 1) {
+        return Response.json({
+          success: false,
+          message: 'Le paiement par mobile money règle une boutique à la fois. '
+            + 'Décochez les articles des autres boutiques, puis recommencez.'
+        }, { status: 400 });
+      }
+
+      try {
+        const { ouvrirMobileMoney, ligneDepuisPanier } = await import('@/lib/checkout-session');
+        const lignes = (items as any[]).map(ligneDepuisPanier).filter(l => l.unitAmount > 0);
+        if (lignes.length === 0) {
+          return Response.json({
+            success: false,
+            message: "Aucun article n'a de prix de vente : impossible d'ouvrir un paiement."
+          }, { status: 400 });
+        }
+
+        const ouvert = await ouvrirMobileMoney({
+          merchantOrganizationId: mainTenantId,
+          items: lignes,
+          // La référence relie l'argent à la commande ET rend la création idempotente : un second
+          // clic rouvre le MÊME achat au lieu d'en créer un que le client pourrait aussi régler.
+          reference: orderIds || null,
+          returnUrl: `${baseUrl}/checkout/success?orderIds=${encodeURIComponent(orderIds)}`,
+          phone: typeof body.payerPhone === 'string' ? body.payerPhone : null,
+        });
+
+        return Response.json({
+          success: true,
+          paymentUrl: ouvert.paymentUrl,
+          checkoutSessionId: ouvert.sessionId,
+          amount: ouvert.amount,
+          currency: ouvert.currency,
+          data: ordersCreated
+        });
+      } catch (mobileMoneyError: any) {
+        console.error('[CHECKOUT MOBILE MONEY ERROR]', mobileMoneyError);
+        // Pas de repli silencieux vers une simulation : un client doit savoir que rien n'a été
+        // encaissé, plutôt que de repartir avec une page de succès et sans marchandise.
+        return Response.json({
+          success: false,
+          message: mobileMoneyError?.message || "Le paiement mobile money n'a pas pu être ouvert."
+        }, { status: 502 });
       }
     }
 

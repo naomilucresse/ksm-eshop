@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { backendFetch } from '@/lib/api-client';
+import { creerProduit, listerProduits } from '@/lib/kernel-catalog';
 import { getLocalReservedQuantities } from '@/lib/local-db';
-
-export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -18,13 +16,14 @@ export async function GET(request: NextRequest) {
     return Response.json({ success: false, message: 'Non autorisé.' }, { status: 401 });
   }
 
-  const result = await backendFetch('/api/product-core/products', {
-    method: 'GET',
-    params: { organizationId, page, size },
-    headers: { 
-      'Authorization': `Bearer ${adminToken}`,
-      ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
-    }
+  if (!organizationId) {
+    return Response.json({ success: false, message: 'organizationId manquant.' }, { status: 400 });
+  }
+  // Le noyau rend la liste entière : page et size ne s'appliquent plus.
+  void page; void size;
+  const result: any = await listerProduits(organizationId, {}, {
+    'Authorization': `Bearer ${adminToken}`,
+    'X-Organization-Id': organizationId,
   });
 
   if (!result.success && (result.errorCode === '401' || result.message === 'Unauthorized')) {
@@ -72,13 +71,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const organizationId = body.organizationId;
     
-    const result = await backendFetch('/api/product-core/products', {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: { 
-        'Authorization': `Bearer ${adminToken}`,
-        ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
-      }
+    const result = await creerProduit(body, {
+      'Authorization': `Bearer ${adminToken}`,
+      ...(organizationId ? { 'X-Organization-Id': organizationId } : {})
     });
 
     return Response.json(result);
